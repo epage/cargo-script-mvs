@@ -20,18 +20,21 @@ jobs:
     - name: Install Rust (nightly)
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: ${{ matrix.rust }}
+        toolchain: nightly
         profile: minimal
+        override: true
     - name: Install Rust (stable)
       uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
         profile: minimal
+        override: true
     - name: Install Rust (MSRV)
       uses: actions-rs/toolchain@v1
       with:
         toolchain: 1.54.0  # MSRV
         profile: minimal
+        override: true
     - name: Install Rust (base)
       uses: actions-rs/toolchain@v1
       with:
