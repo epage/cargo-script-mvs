@@ -1,22 +1,33 @@
 [package]
 name = "rust-script"
 version = "0.20.0"
-edition = "2018"
-authors = ["Fredrik Fornwall <fredrik@fornwall.net>"]
 description = "Command-line tool to run Rust \"scripts\" which can make use of crates."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/epage/cargo-script-mvs"
 homepage = "https://rust-script.org"
 documentation = "https://rust-script.org"
-repository = "https://github.com/fornwall/rust-script"
 readme = "README.md"
-license = "MIT/Apache-2.0"
-keywords = ["cargo", "script"]
 categories = ["command-line-utilities", "development-tools"]
+keywords = ["cargo", "script"]
+edition = "2018"
+authors = ["Fredrik Fornwall <fredrik@fornwall.net>"]
+include = [
+  "build.rs",
+  "src/**/*",
+  "Cargo.toml",
+  "LICENSE*",
+  "README.md",
+  "benches/**/*",
+  "examples/**/*"
+]
 
-exclude = [
-    "_config.yml",
-    "CNAME",
-    ".github",
-    "target"
+[package.metadata.release]
+pre-release-replacements = [
+  {file="CHANGELOG.md", search="Unreleased", replace="{{version}}", min=1},
+  {file="CHANGELOG.md", search="\\.\\.\\.HEAD", replace="...{{tag_name}}", exactly=1},
+  {file="CHANGELOG.md", search="ReleaseDate", replace="{{date}}", min=1},
+  {file="CHANGELOG.md", search="<!-- next-header -->", replace="<!-- next-header -->\n## [Unreleased] - ReleaseDate\n", exactly=1},
+  {file="CHANGELOG.md", search="<!-- next-url -->", replace="<!-- next-url -->\n[Unreleased]: https://github.com/epage/cargo-script-mvs/compare/{{tag_name}}...HEAD", exactly=1},
 ]
 
 [dependencies]

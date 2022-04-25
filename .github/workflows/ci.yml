@@ -1,31 +1,55 @@
 name: CI
-
-on: push
-
+on:
+  pull_request:
+    paths:
+    - '**'
+    - '!/*.md'
+    - '!/docs/**'
+    - "!/LICENSE-*"
+  push:
+    branches:
+    - main
+    paths:
+    - '**'
+    - '!/*.md'
+    - '!/docs/**'
+    - "!/LICENSE-*"
+  schedule:
+  - cron: '1 1 1 * *'
 jobs:
-
+  ci:
+    name: CI
+    needs: [test, test-install-file-association, msrv, docs, rustfmt, clippy]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Done
+        run: exit 0
   test:
+    name: Test
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: ["ubuntu-latest", "windows-latest", "macos-latest"]
+        rust: ["stable"]
+    continue-on-error: ${{ matrix.rust != 'stable' }}
     runs-on: ${{ matrix.os }}
     steps:
-    - name: Checkout source
-      uses: actions/checkout@v2
-    - name: Setup stable rust
-      uses: hecrj/setup-rust-action@v1
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
       with:
-        rust-version: "stable"
-    - name: Setup nightly rust
-      uses: hecrj/setup-rust-action@v1
-      with:
-        rust-version: nightly
-    - name: Setup MSRV rust
-      uses: hecrj/setup-rust-action@v1
-      with:
-        rust-version: "1.54.0"
-    - name: Run unit tests
-      run: rustc --version && cargo --version && cargo test
+        toolchain: ${{ matrix.rust }}
+        profile: minimal
+        override: true
+    - uses: Swatinem/rust-cache@v1
+    - name: Build
+      run: cargo test --no-run --workspace --all-features
+    - name: Default features
+      run: cargo test --workspace
+    - name: All features
+      run: cargo test --workspace --all-features
+    - name: No-default features
+      run: cargo test --workspace --no-default-features
     - name: Run script tests
       if: runner.os != 'Windows'
       run: |
@@ -33,72 +57,18 @@ jobs:
         ./tests/scripts/test-runner.sh
         ./tests/scripts/test-runner.sh
         (cd tests/scripts/ignores-rust-toolchain && ../../../target/debug/rust-script test.rs)
-
-  check-format:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout source
-      uses: actions/checkout@v2
-    - name: Setup rust
-      uses: hecrj/setup-rust-action@v1
-    - name: Install rustfmt
-      run: rustup component add rustfmt
-    - name: Check formatting with rustfmt
-      run: cargo fmt -- --check
-
-  check-clippy:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-    - name: Checkout source
-      uses: actions/checkout@v2
-    - name: Setup rust
-      uses: hecrj/setup-rust-action@v1
-    - name: Install rustfmt
-      run: rustup component add clippy
-    - name: Check for clippy warnings
-      run: cargo clippy --all-targets --all-features -- -D warnings -W clippy::cargo
-
-  upload-debug-builds:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-    - name: Checkout source
-      uses: actions/checkout@v2
-    - name: Setup rust
-      uses: hecrj/setup-rust-action@v1
-    - name: Build debug
-      run: cargo build
-    - name: Upload Windows debug build
-      if: runner.os == 'Windows'
-      uses: actions/upload-artifact@v2
-      with:
-        path: ./target/debug/rust-script.exe
-        name: windows-binary
-    - name: Upload macOS debug build
-      if: runner.os == 'macOS'
-      uses: actions/upload-artifact@v2
-      with:
-        path: ./target/debug/rust-script
-        name: mac-binary
-    - name: Upload Linux debug build
-      if: runner.os == 'Linux'
-      uses: actions/upload-artifact@v2
-      with:
-        path: ./target/debug/rust-script
-        name: linux-binary
-
   test-install-file-association:
     runs-on: windows-latest
     steps:
-    - name: Checkout source
-      uses: actions/checkout@v2
-    - name: Setup rust
-      uses: hecrj/setup-rust-action@v1
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
+    - uses: Swatinem/rust-cache@v1
     - name: Build debug
       run: cargo build
     - name: Install file association
@@ -110,11 +80,75 @@ jobs:
     - name: Run example script
       run: cmd.exe /C .\examples\hello.ers
       continue-on-error: true
-
-  security-audit:
+  msrv:
+    name: "Check MSRV: 1.54.0"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions-rs/audit-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: 1.54.0  # MSRV
+        profile: minimal
+        override: true
+    - uses: Swatinem/rust-cache@v1
+    - name: Default features
+      run: cargo check --workspace --all-targets
+    - name: All features
+      run: cargo check --workspace --all-targets --all-features
+    - name: No-default features
+      run: cargo check --workspace --all-targets --no-default-features
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
+    - uses: Swatinem/rust-cache@v1
+    - name: Check documentation
+      env:
+        RUSTDOCFLAGS: -D warnings
+      run: cargo doc --workspace --all-features --no-deps --document-private-items
+  rustfmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        # Not MSRV because its harder to jump between versions and people are
+        # more likely to have stable
+        toolchain: stable
+        profile: minimal
+        override: true
+        components: rustfmt
+    - uses: Swatinem/rust-cache@v1
+    - name: Check formatting
+      run: cargo fmt --all -- --check
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: 1.54.0  # MSRV
+        profile: minimal
+        override: true
+        components: clippy
+    - uses: Swatinem/rust-cache@v1
+    - uses: actions-rs/clippy-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        args: --workspace --all-features --all-targets -- -D warnings --allow deprecated
