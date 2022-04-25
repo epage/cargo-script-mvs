@@ -17,19 +17,43 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
-    - name: Install Rust
+    - name: Install Rust (nightly)
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ matrix.rust }}
+        profile: minimal
+    - name: Install Rust (stable)
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+    - name: Install Rust (MSRV)
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: 1.54.0  # MSRV
+        profile: minimal
+    - name: Install Rust (base)
       uses: actions-rs/toolchain@v1
       with:
         toolchain: ${{ matrix.rust }}
         profile: minimal
         override: true
     - uses: Swatinem/rust-cache@v1
+    - name: Build
+      run: cargo test --no-run --workspace --all-features
     - name: Default features
       run: cargo test --workspace
     - name: All features
       run: cargo test --workspace --all-features
     - name: No-default features
       run: cargo test --workspace --no-default-features
+    - name: Run script tests
+      if: runner.os != 'Windows'
+      run: |
+        # Run twice to test problem with expression caching
+        ./tests/scripts/test-runner.sh
+        ./tests/scripts/test-runner.sh
+        (cd tests/scripts/ignores-rust-toolchain && ../../../target/debug/rust-script test.rs)
   rustfmt:
     name: rustfmt
     strategy:
@@ -75,4 +99,4 @@ jobs:
     - uses: actions-rs/clippy-check@v1
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        args: --workspace --all-features --all-targets -- -D warnings
+        args: --workspace --all-features --all-targets -- -D warnings --allow deprecated
