@@ -90,7 +90,6 @@ impl BuildKind {
 
 fn parse_args() -> Args {
     use clap::{App, Arg, ArgGroup};
-    use std::iter::FromIterator;
     let version = option_env!("CARGO_PKG_VERSION").unwrap_or("unknown");
     let about = r#"Compiles and runs a Rust script."#;
 
@@ -269,7 +268,7 @@ fn parse_args() -> Args {
     if let Some(script_and_args) = script_and_args {
         script = script_and_args.get(0).map(|s| s.to_string());
         script_args = if script_and_args.len() > 1 {
-            Vec::from_iter(script_and_args[1..].iter().map(|s| s.to_string()))
+            script_and_args[1..].iter().map(|s| s.to_string()).collect()
         } else {
             Vec::new()
         };
