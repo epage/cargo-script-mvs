@@ -1,8 +1,8 @@
 # These settings are synced to GitHub by https://probot.github.io/apps/settings/
 
 repository:
-  description: "Command-line tool to run Rust \"scripts\" which can make use of crates."
-  homepage: https://rust-script.org
+  description: Pre-RFC for merging cargo-script into cargo
+  homepage: rust-script.org
   topics: rust cargo script
   has_issues: true
   has_projects: false
