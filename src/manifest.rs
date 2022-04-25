@@ -1,5 +1,5 @@
 /*!
-This module is concerned with how `rust-script` extracts the manfiest from a script file.
+This module is concerned with how `rust-script` extracts the manifest from a script file.
 */
 use regex;
 
@@ -26,7 +26,7 @@ lazy_static! {
     static ref RE_CRATE_COMMENT: Regex = {
         Regex::new(
             r"(?x)
-                # We need to find the first `/*!` or `//!` that *isn't* preceeded by something that would make it apply to anything other than the crate itself.  Because we can't do this accurately, we'll just require that the doc comment is the *first* thing in the file (after the optional shebang, which should already have been stripped).
+                # We need to find the first `/*!` or `//!` that *isn't* preceded by something that would make it apply to anything other than the crate itself.  Because we can't do this accurately, we'll just require that the doc comment is the *first* thing in the file (after the optional shebang, which should already have been stripped).
                 ^\s*
                 (/\*!|//(!|/))
             "
