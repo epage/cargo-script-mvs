@@ -10,6 +10,7 @@ readme = "README.md"
 categories = ["command-line-utilities", "development-tools"]
 keywords = ["cargo", "script"]
 edition = "2018"
+rust-version = "1.60.0"  # MSRV
 authors = ["Fredrik Fornwall <fredrik@fornwall.net>"]
 include = [
   "build.rs",
