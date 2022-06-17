@@ -46,7 +46,6 @@ struct Args {
     clear_cache: bool,
     debug: bool,
     dep: Vec<String>,
-    extern_: Vec<String>,
     force: bool,
     unstable_features: Vec<String>,
     build_kind: BuildKind,
@@ -154,14 +153,6 @@ fn parse_args() -> Args {
                 .takes_value(true)
                 .multiple_occurrences(true)
                 .number_of_values(1)
-            )
-            .arg(Arg::new("extern")
-                .help("Adds an `#[macro_use] extern crate name;` item for expressions and loop scripts.")
-                .long("extern")
-                .short('x')
-                .takes_value(true)
-                .multiple_occurrences(true)
-                .requires("expr_or_loop")
             )
             .arg(Arg::new("features")
                  .help("Cargo features to pass when building and running.")
@@ -291,7 +282,6 @@ fn parse_args() -> Args {
         clear_cache: m.is_present("clear-cache"),
         debug: m.is_present("debug"),
         dep: owned_vec_string(m.values_of("dep")),
-        extern_: owned_vec_string(m.values_of("extern")),
         force: m.is_present("force"),
         unstable_features: owned_vec_string(m.values_of("unstable_features")),
         build_kind: BuildKind::from_flags(m.is_present("test"), m.is_present("bench")),
@@ -446,12 +436,7 @@ fn try_main() -> MainResult<i32> {
             .iter()
             .map(|uf| format!("#![feature({})]", uf));
 
-        let externs = args
-            .extern_
-            .iter()
-            .map(|n| format!("#[macro_use] extern crate {};", n));
-
-        let mut items: Vec<_> = unstable_features.chain(externs).collect();
+        let mut items: Vec<_> = unstable_features.collect();
         items.sort();
         items
     };
