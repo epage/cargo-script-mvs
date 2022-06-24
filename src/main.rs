@@ -142,9 +142,16 @@ fn parse_args() -> Args {
                 .long("count")
                 .requires("loop")
             )
+            .arg(Arg::new("release")
+                .help("Build a release executable, an optimised one.")
+                .short('r')
+                .long("release")
+                .conflicts_with_all(&["debug", "bench"])
+            )
             .arg(Arg::new("debug")
                 .help("Build a debug executable, not an optimised one.")
                 .long("debug")
+                .conflicts_with_all(&["release"])
             )
             .arg(Arg::new("dep")
                 .help("Add an additional Cargo dependency. Each SPEC can be either just the package name (which will assume the latest version) or a full `name=version` spec.")
@@ -280,7 +287,7 @@ fn parse_args() -> Args {
         gen_pkg_only: m.is_present("gen_pkg_only"),
         cargo_output: m.is_present("cargo-output"),
         clear_cache: m.is_present("clear-cache"),
-        debug: m.is_present("debug"),
+        debug: !m.is_present("release"),
         dep: owned_vec_string(m.values_of("dep")),
         force: m.is_present("force"),
         unstable_features: owned_vec_string(m.values_of("unstable_features")),
