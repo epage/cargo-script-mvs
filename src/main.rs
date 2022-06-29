@@ -45,7 +45,6 @@ struct Args {
     cargo_output: bool,
     clear_cache: bool,
     debug: bool,
-    dep: Vec<String>,
     force: bool,
     unstable_features: Vec<String>,
     build_kind: BuildKind,
@@ -147,14 +146,6 @@ fn parse_args() -> Args {
                 .short('r')
                 .long("release")
                 .conflicts_with_all(&["bench"])
-            )
-            .arg(Arg::new("dep")
-                .help("Add an additional Cargo dependency. Each SPEC can be either just the package name (which will assume the latest version) or a full `name=version` spec.")
-                .long("dep")
-                .short('d')
-                .takes_value(true)
-                .multiple_occurrences(true)
-                .number_of_values(1)
             )
             .arg(Arg::new("features")
                  .help("Cargo features to pass when building and running.")
@@ -283,7 +274,6 @@ fn parse_args() -> Args {
         cargo_output: m.is_present("cargo-output"),
         clear_cache: m.is_present("clear-cache"),
         debug: !m.is_present("release"),
-        dep: owned_vec_string(m.values_of("dep")),
         force: m.is_present("force"),
         unstable_features: owned_vec_string(m.values_of("unstable_features")),
         build_kind: BuildKind::from_flags(m.is_present("test"), m.is_present("bench")),
@@ -391,46 +381,6 @@ fn try_main() -> MainResult<i32> {
     std::env::set_var("RUST_SCRIPT_PKG_NAME", input.package_name());
     std::env::set_var("RUST_SCRIPT_BASE_PATH", input.base_path());
 
-    // Sort out the dependencies.  We want to do a few things:
-    // - Sort them so that they hash consistently.
-    // - Check for duplicates.
-    // - Expand `pkg` into `pkg=*`.
-    let dependencies_from_args = {
-        use std::collections::HashMap;
-
-        let mut deps: HashMap<String, String> = HashMap::new();
-        for dep in args.dep.iter().cloned() {
-            // Append '=*' if it needs it.
-            let dep = match dep.find('=') {
-                Some(_) => dep,
-                None => dep + "=*",
-            };
-
-            let mut parts = dep.splitn(2, '=');
-            let name = parts.next().expect("dependency is missing name");
-            let version = parts.next().expect("dependency is missing version");
-            assert!(
-                parts.next().is_none(),
-                "dependency somehow has three parts?!"
-            );
-
-            if name.is_empty() {
-                return Err(("cannot have empty dependency package name").into());
-            } else if version.is_empty() {
-                return Err(("cannot have empty dependency version").into());
-            }
-
-            if deps.insert(name.into(), version.into()).is_some() {
-                return Err((format!("duplicated dependency: '{}'", name)).into());
-            }
-        }
-
-        // Sort and turn into a regular vec.
-        let mut deps: Vec<(String, String)> = deps.into_iter().collect();
-        deps.sort();
-        deps
-    };
-
     // Generate the prelude items, if we need any. Ensure consistent and *valid* sorting.
     let prelude_items = {
         let unstable_features = args
@@ -444,7 +394,8 @@ fn try_main() -> MainResult<i32> {
     };
     info!("prelude_items: {:?}", prelude_items);
 
-    let action = decide_action_for(&input, dependencies_from_args, prelude_items, &args)?;
+    
+    let action = decide_action_for(&input, prelude_items, &args)?;
     info!("action: {:?}", action);
 
     gen_pkg_and_compile(&input, &action)?;
@@ -735,10 +686,14 @@ For the given input, this constructs the package metadata and checks the cache t
 */
 fn decide_action_for(
     input: &Input,
-    deps: Vec<(String, String)>,
     prelude: Vec<String>,
     args: &Args,
 ) -> MainResult<InputAction> {
+    /// Placeholder DS to be mopped up with changes to manifest.rs syntax #37
+    use std::collections::HashMap;
+    let tmp_dep: HashMap<String, String> = HashMap::new();
+    let deps: Vec<(String, String)> = tmp_dep.into_iter().collect();
+
     let input_id = {
         let deps_iter = deps.iter().map(|&(ref n, ref v)| (n as &str, v as &str));
         // Again, also fucked if we can't work this out.
