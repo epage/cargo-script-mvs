@@ -32,7 +32,7 @@ pre-release-replacements = [
 ]
 
 [dependencies]
-clap = "3.1.14"
+clap = "3.2.8"
 dirs-next = "2"
 env_logger = "0.9"
 lazy_static = "1"
