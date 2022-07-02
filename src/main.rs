@@ -142,9 +142,11 @@ fn parse_args() -> Args {
                 .long("count")
                 .requires("loop")
             )
-            .arg(Arg::new("debug")
-                .help("Build a debug executable, not an optimised one.")
-                .long("debug")
+            .arg(Arg::new("release")
+                .help("Build a release executable, an optimised one.")
+                .short('r')
+                .long("release")
+                .conflicts_with_all(&["bench"])
             )
             .arg(Arg::new("dep")
                 .help("Add an additional Cargo dependency. Each SPEC can be either just the package name (which will assume the latest version) or a full `name=version` spec.")
@@ -184,7 +186,7 @@ fn parse_args() -> Args {
                 .help("Generate the Cargo package, but don't compile or run it.")
                 .long("gen-pkg-only")
                 .requires("script")
-                .conflicts_with_all(&["debug", "force", "test", "bench"])
+                .conflicts_with_all(&["release", "force", "test", "bench"])
             )
             .arg(Arg::new("pkg_path")
                 .help("Specify where to place the generated Cargo package.")
@@ -196,12 +198,12 @@ fn parse_args() -> Args {
             .arg(Arg::new("test")
                 .help("Compile and run tests.")
                 .long("test")
-                .conflicts_with_all(&["bench", "debug", "force"])
+                .conflicts_with_all(&["bench", "force"])
             )
             .arg(Arg::new("bench")
                 .help("Compile and run benchmarks. Requires a nightly toolchain.")
                 .long("bench")
-                .conflicts_with_all(&["test", "debug", "force"])
+                .conflicts_with_all(&["test", "force"])
             )
             .arg(Arg::new("template")
                 .help("Specify a template to use for expression scripts.")
@@ -280,7 +282,7 @@ fn parse_args() -> Args {
         gen_pkg_only: m.is_present("gen_pkg_only"),
         cargo_output: m.is_present("cargo-output"),
         clear_cache: m.is_present("clear-cache"),
-        debug: m.is_present("debug"),
+        debug: !m.is_present("release"),
         dep: owned_vec_string(m.values_of("dep")),
         force: m.is_present("force"),
         unstable_features: owned_vec_string(m.values_of("unstable_features")),
