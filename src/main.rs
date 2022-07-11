@@ -59,7 +59,13 @@ struct Args {
     install_file_association: bool,
     #[cfg(windows)]
     uninstall_file_association: bool,
+
+    #[allow(dead_code)]
+    unstable_flags: Vec<UnstableFlags>,
 }
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, clap::ValueEnum)]
+enum UnstableFlags {}
 
 #[derive(Copy, Clone, Debug)]
 enum BuildKind {
@@ -223,6 +229,15 @@ fn parse_args() -> Args {
             .help("List the available templates.")
             .long("list-templates")
             .takes_value(false)
+        )
+        .arg(Arg::new("unstable_flags")
+            .help("Unstable (nightly-only) flags")
+            .short('Z')
+            .value_name("FLAG")
+            .global(true)
+            .takes_value(true)
+            .value_parser(clap::value_parser!(UnstableFlags))
+            .action(clap::ArgAction::Append)
         );
 
     #[cfg(windows)]
@@ -292,6 +307,11 @@ fn parse_args() -> Args {
         install_file_association: m.is_present("install-file-association"),
         #[cfg(windows)]
         uninstall_file_association: m.is_present("uninstall-file-association"),
+        unstable_flags: m
+            .get_many::<UnstableFlags>("unstable_flags")
+            .unwrap_or_default()
+            .copied()
+            .collect::<Vec<_>>(),
     }
 }
 
