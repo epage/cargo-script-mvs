@@ -466,11 +466,9 @@ fn clean_cache(max_age: u128) -> MainResult<()> {
     if max_age == 0 {
         info!("max_age is 0, clearing binary cache...");
         let cache_dir = platform::binary_cache_path()?;
-        if ALLOW_AUTO_REMOVE {
-            if cache_dir.exists() {
-                if let Err(err) = fs::remove_dir_all(&cache_dir) {
-                    error!("failed to remove binary cache {:?}: {}", cache_dir, err);
-                }
+        if ALLOW_AUTO_REMOVE && cache_dir.exists() {
+            if let Err(err) = fs::remove_dir_all(&cache_dir) {
+                error!("failed to remove binary cache {:?}: {}", cache_dir, err);
             }
         }
     }
