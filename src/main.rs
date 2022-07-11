@@ -466,7 +466,7 @@ fn clean_cache(max_age: u128) -> MainResult<()> {
     if max_age == 0 {
         info!("max_age is 0, clearing binary cache...");
         let cache_dir = platform::binary_cache_path()?;
-        if ALLOW_AUTO_REMOVE {
+        if ALLOW_AUTO_REMOVE && cache_dir.exists() {
             if let Err(err) = fs::remove_dir_all(&cache_dir) {
                 error!("failed to remove binary cache {:?}: {}", cache_dir, err);
             }
@@ -477,53 +477,56 @@ fn clean_cache(max_age: u128) -> MainResult<()> {
     info!("cutoff:     {:>20?} ms", cutoff);
 
     let cache_dir = platform::generated_projects_cache_path()?;
-    for child in fs::read_dir(cache_dir)? {
-        let child = child?;
-        let path = child.path();
-        if path.is_file() {
-            continue;
-        }
+    if cache_dir.exists() {
+        for child in fs::read_dir(cache_dir)? {
+            let child = child?;
+            let path = child.path();
+            if path.is_file() {
+                continue;
+            }
 
-        info!("checking: {:?}", path);
+            info!("checking: {:?}", path);
 
-        let remove_dir = || {
-            // Ok, so *why* aren't we using `modified in the package metadata?
-            // The point of *that* is to track what we know about the input.
-            // The problem here is that `--expr` and `--loop` don't *have*
-            // modification times; they just *are*.
-            // Now, `PackageMetadata` *could* be modified to store, say, the
-            // moment in time the input was compiled, but then we couldn't use
-            // that field for metadata matching when decided whether or not a
-            // *file* input should be recompiled.
-            // So, instead, we're just going to go by the timestamp on the
-            // metadata file *itself*.
-            let meta_mtime = {
-                let meta_path = get_pkg_metadata_path(&path);
-                let meta_file = match fs::File::open(&meta_path) {
-                    Ok(file) => file,
-                    Err(..) => {
-                        info!("couldn't open metadata for {:?}", path);
-                        return true;
-                    }
+            let remove_dir = || {
+                // Ok, so *why* aren't we using `modified in the package metadata?
+                // The point of *that* is to track what we know about the input.
+                // The problem here is that `--expr` and `--loop` don't *have*
+                // modification times; they just *are*.
+                // Now, `PackageMetadata` *could* be modified to store, say, the
+                // moment in time the input was compiled, but then we couldn't use
+                // that field for metadata matching when decided whether or not a
+                // *file* input should be recompiled.
+                // So, instead, we're just going to go by the timestamp on the
+                // metadata file *itself*.
+                let meta_mtime = {
+                    let meta_path = get_pkg_metadata_path(&path);
+                    let meta_file = match fs::File::open(&meta_path) {
+                        Ok(file) => file,
+                        Err(..) => {
+                            info!("couldn't open metadata for {:?}", path);
+                            return true;
+                        }
+                    };
+                    platform::file_last_modified(&meta_file)
                 };
-                platform::file_last_modified(&meta_file)
+                info!("meta_mtime: {:>20?} ms", meta_mtime);
+
+                meta_mtime <= cutoff
             };
-            info!("meta_mtime: {:>20?} ms", meta_mtime);
 
-            meta_mtime <= cutoff
-        };
-
-        if remove_dir() {
-            info!("removing {:?}", path);
-            if ALLOW_AUTO_REMOVE {
-                if let Err(err) = fs::remove_dir_all(&path) {
-                    error!("failed to remove {:?} from cache: {}", path, err);
+            if remove_dir() {
+                info!("removing {:?}", path);
+                if ALLOW_AUTO_REMOVE {
+                    if let Err(err) = fs::remove_dir_all(&path) {
+                        error!("failed to remove {:?} from cache: {}", path, err);
+                    }
+                } else {
+                    info!("(suppressed remove)");
                 }
-            } else {
-                info!("(suppressed remove)");
             }
         }
     }
+
     info!("done cleaning cache.");
     Ok(())
 }

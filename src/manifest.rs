@@ -11,28 +11,31 @@ use crate::consts;
 use crate::error::{MainError, MainResult};
 use crate::templates;
 use crate::Input;
-use lazy_static::lazy_static;
 use log::{error, info};
 use std::ffi::OsString;
 
-lazy_static! {
-    static ref RE_SHORT_MANIFEST: Regex =
-        Regex::new(r"^(?i)\s*//\s*cargo-deps\s*:(.*?)(\r\n|\n)").unwrap();
-    static ref RE_MARGIN: Regex = Regex::new(r"^\s*\*( |$)").unwrap();
-    static ref RE_SPACE: Regex = Regex::new(r"^(\s+)").unwrap();
-    static ref RE_NESTING: Regex = Regex::new(r"/\*|\*/").unwrap();
-    static ref RE_COMMENT: Regex = Regex::new(r"^\s*//(!|/)").unwrap();
-    static ref RE_SHEBANG: Regex = Regex::new(r"^#![^\[].*?(\r\n|\n)").unwrap();
-    static ref RE_CRATE_COMMENT: Regex = {
-        Regex::new(
+static RE_SHORT_MANIFEST: once_cell::sync::Lazy<Regex> = once_cell::sync::Lazy::new(|| {
+    Regex::new(r"^(?i)\s*//\s*cargo-deps\s*:(.*?)(\r\n|\n)").unwrap()
+});
+static RE_MARGIN: once_cell::sync::Lazy<Regex> =
+    once_cell::sync::Lazy::new(|| Regex::new(r"^\s*\*( |$)").unwrap());
+static RE_SPACE: once_cell::sync::Lazy<Regex> =
+    once_cell::sync::Lazy::new(|| Regex::new(r"^(\s+)").unwrap());
+static RE_NESTING: once_cell::sync::Lazy<Regex> =
+    once_cell::sync::Lazy::new(|| Regex::new(r"/\*|\*/").unwrap());
+static RE_COMMENT: once_cell::sync::Lazy<Regex> =
+    once_cell::sync::Lazy::new(|| Regex::new(r"^\s*//(!|/)").unwrap());
+static RE_SHEBANG: once_cell::sync::Lazy<Regex> =
+    once_cell::sync::Lazy::new(|| Regex::new(r"^#![^\[].*?(\r\n|\n)").unwrap());
+static RE_CRATE_COMMENT: once_cell::sync::Lazy<Regex> = once_cell::sync::Lazy::new(|| {
+    Regex::new(
             r"(?x)
                 # We need to find the first `/*!` or `//!` that *isn't* preceded by something that would make it apply to anything other than the crate itself.  Because we can't do this accurately, we'll just require that the doc comment is the *first* thing in the file (after the optional shebang, which should already have been stripped).
                 ^\s*
                 (/\*!|//(!|/))
             "
         ).unwrap()
-    };
-}
+});
 
 /**
 Splits input into a complete Cargo manifest and unadultered Rust source.
