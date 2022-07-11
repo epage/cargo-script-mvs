@@ -62,10 +62,9 @@ macro_rules! with_output_marker {
     };
 }
 
-lazy_static! {
-    #[doc(hidden)]
-    pub static ref CARGO_MUTEX: Mutex<()> = Mutex::new(());
-}
+#[doc(hidden)]
+pub static CARGO_MUTEX: once_cell::sync::Lazy<Mutex<()>> =
+    once_cell::sync::Lazy::new(|| Mutex::new(()));
 
 pub const OUTPUT_MARKER: &str = "--output--";
 pub const OUTPUT_MARKER_CODE: &str = "println!(\"--output--\");";

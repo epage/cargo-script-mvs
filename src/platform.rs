@@ -38,10 +38,8 @@ pub fn cache_dir() -> Result<PathBuf, MainError> {
 
 #[cfg(test)]
 pub fn cache_dir() -> Result<PathBuf, MainError> {
-    use lazy_static::lazy_static;
-    lazy_static! {
-        static ref TEMP_DIR: tempfile::TempDir = tempfile::TempDir::new().unwrap();
-    }
+    static TEMP_DIR: once_cell::sync::Lazy<tempfile::TempDir> =
+        once_cell::sync::Lazy::new(|| tempfile::TempDir::new().unwrap());
     Ok(TEMP_DIR.path().to_path_buf())
 }
 

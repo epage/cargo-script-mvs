@@ -4,15 +4,13 @@ This module contains code related to template support.
 use crate::consts;
 use crate::error::{MainError, MainResult};
 use crate::platform;
-use lazy_static::lazy_static;
 use regex::Regex;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs;
 
-lazy_static! {
-    static ref RE_SUB: Regex = Regex::new(r#"#\{([A-Za-z_][A-Za-z0-9_]*)}"#).unwrap();
-}
+static RE_SUB: once_cell::sync::Lazy<Regex> =
+    once_cell::sync::Lazy::new(|| Regex::new(r#"#\{([A-Za-z_][A-Za-z0-9_]*)}"#).unwrap());
 
 pub fn expand(src: &str, subs: &HashMap<&str, &str>) -> MainResult<String> {
     // The estimate of final size is the sum of the size of all the input.
