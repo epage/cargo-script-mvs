@@ -65,7 +65,10 @@ struct Args {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, clap::ValueEnum)]
-enum UnstableFlags {}
+enum UnstableFlags {
+    Test,
+    Bench,
+}
 
 #[derive(Copy, Clone, Debug)]
 enum BuildKind {
@@ -93,7 +96,7 @@ impl BuildKind {
     }
 }
 
-fn parse_args() -> Args {
+fn parse_args() -> MainResult<Args> {
     use clap::{Arg, ArgGroup, Command};
     let version = option_env!("CARGO_PKG_VERSION").unwrap_or("unknown");
     let about = r#"Compiles and runs a Rust script."#;
@@ -267,6 +270,12 @@ fn parse_args() -> Args {
             .unwrap_or_default()
     }
 
+    let unstable_flags = m
+        .get_many::<UnstableFlags>("unstable_flags")
+        .unwrap_or_default()
+        .copied()
+        .collect::<Vec<_>>();
+
     let script_and_args: Option<Vec<&str>> = m.values_of("script").map(|o| o.collect());
     let script;
     let script_args: Vec<String>;
@@ -282,7 +291,28 @@ fn parse_args() -> Args {
         script_args = Vec::new();
     }
 
-    Args {
+    let build_kind = BuildKind::from_flags(m.is_present("test"), m.is_present("bench"));
+    match build_kind {
+        BuildKind::Normal => {}
+        BuildKind::Test => {
+            if !unstable_flags.contains(&UnstableFlags::Test) {
+                return Err(
+                    "`--test` is unstable and requires `-Z test` (epage/cargo-script-mvs#29)."
+                        .into(),
+                );
+            }
+        }
+        BuildKind::Bench => {
+            if !unstable_flags.contains(&UnstableFlags::Bench) {
+                return Err(
+                    "`--bench` is unstable and requires `-Z bench` (epage/cargo-script-mvs#68)."
+                        .into(),
+                );
+            }
+        }
+    }
+
+    Ok(Args {
         script,
         script_args,
         features: m.value_of("features").map(Into::into),
@@ -299,7 +329,7 @@ fn parse_args() -> Args {
         dep: owned_vec_string(m.values_of("dep")),
         force: m.is_present("force"),
         unstable_features: owned_vec_string(m.values_of("unstable_features")),
-        build_kind: BuildKind::from_flags(m.is_present("test"), m.is_present("bench")),
+        build_kind,
         template: m.value_of("template").map(Into::into),
         list_templates: m.is_present("list-templates"),
         toolchain_version: m.value_of("toolchain-version").map(Into::into),
@@ -307,12 +337,8 @@ fn parse_args() -> Args {
         install_file_association: m.is_present("install-file-association"),
         #[cfg(windows)]
         uninstall_file_association: m.is_present("uninstall-file-association"),
-        unstable_flags: m
-            .get_many::<UnstableFlags>("unstable_flags")
-            .unwrap_or_default()
-            .copied()
-            .collect::<Vec<_>>(),
-    }
+        unstable_flags,
+    })
 }
 
 fn main() {
@@ -332,7 +358,7 @@ fn main() {
 }
 
 fn try_main() -> MainResult<i32> {
-    let args = parse_args();
+    let args = parse_args()?;
     info!("Arguments: {:?}", args);
 
     #[cfg(windows)]

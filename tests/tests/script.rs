@@ -84,7 +84,7 @@ fn test_script_short_without_main() {
 
 #[test]
 fn test_script_test() {
-    let out = rust_script!("--test", "tests/data/script-test.rs").unwrap();
+    let out = rust_script!("-Ztest", "--test", "tests/data/script-test.rs").unwrap();
     assert!(out.success());
 }
 
