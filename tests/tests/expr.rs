@@ -29,25 +29,6 @@ fn test_expr_temporary() {
 }
 
 #[test]
-fn test_expr_dep() {
-    let out = rust_script!(
-        "-Zexpr",
-        "-d",
-        "boolinator=0.1.0",
-        "-e",
-        with_output_marker!(
-            prelude "use boolinator::Boolinator;";
-            "true.as_some(1)"
-        )
-    )
-    .unwrap();
-    scan!(out.stdout_output();
-    ("Some(1)") => ()
-    )
-    .unwrap();
-}
-
-#[test]
 fn test_expr_panic() {
     let out = rust_script!("-Zexpr", "-e", with_output_marker!("panic!()")).unwrap();
     assert!(!out.success());

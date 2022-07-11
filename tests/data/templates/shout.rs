@@ -1,5 +1,3 @@
-#{prelude}
-
 fn main() {
     match {#{script}} {
         script_result => {
