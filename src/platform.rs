@@ -31,9 +31,13 @@ pub fn current_time() -> u128 {
 
 #[cfg(not(test))]
 pub fn cache_dir() -> Result<PathBuf, MainError> {
-    dirs_next::cache_dir()
-        .map(|dir| dir.join(consts::PROGRAM_NAME))
-        .ok_or_else(|| ("Cannot get cache directory").into())
+    if let Some(path) = std::env::var_os("RUST_SCRIPT_CACHE_PATH") {
+        return Ok(path.into());
+    } else {
+        dirs_next::cache_dir()
+            .map(|dir| dir.join(consts::PROGRAM_NAME))
+            .ok_or_else(|| ("Cannot get cache directory").into())
+    }
 }
 
 #[cfg(test)]
