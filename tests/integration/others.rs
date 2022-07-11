@@ -1,15 +1,36 @@
 #[test]
 fn test_version() {
-    let out = rust_script!("--version").unwrap();
-    assert!(out.success());
-    scan!(&out.stdout;
-        ("rust-script", &::std::env::var("CARGO_PKG_VERSION").unwrap(), .._) => ()
-    )
-    .unwrap();
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .args(["--version"])
+        .assert()
+        .success()
+        .stdout_matches(
+            "rust-script [..]
+",
+        );
+
+    fixture.close();
+}
+
+#[test]
+fn test_empty_clear_cache() {
+    let fixture = crate::util::Fixture::new();
+    fixture.cmd().args(["--clear-cache"]).assert().success();
+    fixture.close();
 }
 
 #[test]
 fn test_clear_cache() {
-    let out = rust_script!("--clear-cache").unwrap();
-    assert!(out.success());
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/script-full-block.rs")
+        .assert()
+        .success();
+
+    fixture.cmd().args(["--clear-cache"]).assert().success();
+
+    fixture.close();
 }

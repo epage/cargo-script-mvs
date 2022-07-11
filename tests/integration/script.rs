@@ -1,228 +1,425 @@
 #[test]
 fn test_script_features() {
-    let out = rust_script!("--features", "dont-panic", "tests/data/script-features.rs").unwrap();
-    scan!(out.stdout_output();
-        ("Keep calm and borrow check.") => ()
-    )
-    .unwrap();
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .args(["--features", "dont-panic"])
+        .arg("tests/data/script-features.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+Keep calm and borrow check.
+",
+        );
 
-    let out = rust_script!("tests/data/script-features.rs").unwrap();
-    assert!(!out.success());
+    fixture.cmd()
+        .arg("tests/data/script-features.rs")
+        .assert()
+        .failure()
+        .stderr_matches(
+            "...
+thread 'main' panicked at 'Do I really exist from an external, non-subjective point of view?', script-features.rs:15:5
+...",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_script_full_block() {
-    let out = rust_script!("tests/data/script-full-block.rs").unwrap();
-    scan!(out.stdout_output();
-        ("Some(1)") => ()
-    )
-    .unwrap()
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/script-full-block.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+Some(1)
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_script_full_line() {
-    let out = rust_script!("tests/data/script-full-line.rs").unwrap();
-    scan!(out.stdout_output();
-        ("Some(1)") => ()
-    )
-    .unwrap()
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/script-full-line.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+Some(1)
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_script_full_line_without_main() {
-    let out = rust_script!("tests/data/script-full-line-without-main.rs").unwrap();
-    scan!(out.stdout_output();
-        ("Some(1)") => ()
-    )
-    .unwrap()
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/script-full-line-without-main.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+Some(1)
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_script_invalid_doc_comment() {
-    let out = rust_script!("tests/data/script-invalid-doc-comment.rs").unwrap();
-    scan!(out.stdout_output();
-        ("Hello, World!") => ()
-    )
-    .unwrap()
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/script-invalid-doc-comment.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+Hello, World!
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_script_no_deps() {
-    let out = rust_script!("tests/data/script-no-deps.rs").unwrap();
-    scan!(out.stdout_output();
-        ("Hello, World!") => ()
-    )
-    .unwrap()
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/script-no-deps.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+Hello, World!
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_script_short() {
-    let out = rust_script!("tests/data/script-short.rs").unwrap();
-    scan!(out.stdout_output();
-        ("Some(1)") => ()
-    )
-    .unwrap()
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/script-short.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+Some(1)
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_script_short_without_main() {
-    let out = rust_script!("tests/data/script-short-without-main.rs").unwrap();
-    scan!(out.stdout_output();
-        ("Some(1)") => ()
-    )
-    .unwrap()
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/script-short-without-main.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+Some(1)
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_script_test() {
-    let out = rust_script!("-Ztest", "--test", "tests/data/script-test.rs").unwrap();
-    assert!(out.success());
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .args(["-Ztest", "--test"])
+        .arg("tests/data/script-test.rs")
+        .assert()
+        .success()
+        .stdout_matches(
+            "
+running 1 test
+test test ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in [..]s
+
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_script_hyphens() {
-    use scan_rules::scanner::QuotedString;
-    let out = rust_script!("--", "tests/data/script-args.rs", "-NotAnArg").unwrap();
-    scan!(out.stdout_output();
-        ("[0]:", let _: QuotedString, "[1]:", let arg: QuotedString) => {
-            assert_eq!(arg, "-NotAnArg");
-        }
-    )
-    .unwrap()
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .args(["--"])
+        .arg("tests/data/script-args.rs")
+        .args(["-NotAnArg"])
+        .assert()
+        .success()
+        .stdout_matches(
+            r#"--output--
+ [0]: "[..]/script-args_[..]"
+ [1]: "-NotAnArg"
+"#,
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_script_hyphens_without_separator() {
-    use scan_rules::scanner::QuotedString;
-    let out = rust_script!("tests/data/script-args.rs", "-NotAnArg").unwrap();
-    scan!(out.stdout_output();
-        ("[0]:", let _: QuotedString, "[1]:", let arg: QuotedString) => {
-            assert_eq!(arg, "-NotAnArg");
-        }
-    )
-    .unwrap()
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/script-args.rs")
+        .args(["-NotAnArg"])
+        .assert()
+        .success()
+        .stdout_matches(
+            r#"--output--
+ [0]: "[..]/script-args_[..]"
+ [1]: "-NotAnArg"
+"#,
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_script_has_weird_chars() {
-    let out = rust_script!("tests/data/script-has.weird§chars!.rs").unwrap();
-    assert!(out.success());
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/script-has.weird§chars!.rs")
+        .assert()
+        .success();
+
+    fixture.close();
 }
 
 #[test]
 fn test_script_cs_env() {
-    let out = rust_script!("tests/data/script-cs-env.rs").unwrap();
-    scan!(out.stdout_output();
-        ("Ok") => ()
-    )
-    .unwrap()
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/script-cs-env.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+Ok
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_script_including_relative() {
-    let out = rust_script!("tests/data/script-including-relative.rs").unwrap();
-    scan!(out.stdout_output();
-        ("hello, including script") => ()
-    )
-    .unwrap()
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/script-including-relative.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+hello, including script
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn script_with_same_name_as_dependency() {
-    let out = rust_script!("tests/data/time.rs").unwrap();
-    scan!(out.stdout_output();
-        ("Hello") => ()
-    )
-    .unwrap()
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/time.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+Hello
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn script_without_main_question_mark() {
-    let out = rust_script!("tests/data/question-mark").unwrap();
-    assert!(out
-        .stderr
-        .starts_with("Error: Os { code: 2, kind: NotFound, message:"));
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/question-mark")
+        .assert()
+        .failure()
+        .stderr_matches(
+            "Error: Os { code: 2, kind: NotFound, message: [..] }
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_script_async_main() {
-    let out = rust_script!("tests/data/script-async-main.rs").unwrap();
-    scan!(out.stdout_output();
-        ("Some(1)") => ()
-    )
-    .unwrap()
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/script-async-main.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+Some(1)
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_pub_fn_main() {
-    let out = rust_script!("tests/data/pub-fn-main.rs").unwrap();
-    scan!(out.stdout_output();
-        ("Some(1)") => ()
-    )
-    .unwrap()
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/pub-fn-main.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+Some(1)
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_cargo_target_dir_env() {
-    let out = rust_script!("tests/data/cargo-target-dir-env.rs").unwrap();
-    scan!(out.stdout_output();
-        ("true") => ()
-    )
-    .unwrap()
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/cargo-target-dir-env.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+true
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_outer_line_doc() {
-    let out = rust_script!("tests/data/outer-line-doc.rs").unwrap();
-    scan!(out.stdout_output();
-        ("Some(1)") => ()
-    )
-    .unwrap()
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/outer-line-doc.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+Some(1)
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_whitespace_before_main() {
-    let out = rust_script!("tests/data/whitespace-before-main.rs").unwrap();
-    scan!(out.stdout_output();
-        ("hello, world") => ()
-    )
-    .unwrap()
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/whitespace-before-main.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+hello, world
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_stable_toolchain() {
-    let out = rust_script!(
-        "-Ztoolchain-version",
-        "--toolchain-version",
-        "stable",
-        "tests/data/script-unstable-feature.rs"
-    )
-    .unwrap();
-    assert!(out.stderr.contains("`#![feature]` may not be used"));
-    assert!(!out.success());
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .args(["-Ztoolchain-version", "--toolchain-version", "stable"])
+        .arg("tests/data/script-unstable-feature.rs")
+        .assert()
+        .failure()
+        .stderr_matches(
+            "error[E0554]: `#![feature]` may not be used on the stable release channel
+...
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_nightly_toolchain() {
-    let out = rust_script!(
-        "-Ztoolchain-version",
-        "--toolchain-version",
-        "nightly",
-        "tests/data/script-unstable-feature.rs"
-    )
-    .unwrap();
-    scan!(out.stdout_output();
-        ("`#![feature]` *may* be used!") => ()
-    )
-    .unwrap();
-    assert!(out.success());
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .args(["-Ztoolchain-version", "--toolchain-version", "nightly"])
+        .arg("tests/data/script-unstable-feature.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+`#![feature]` *may* be used!
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_same_flags() {
-    let out = rust_script!("tests/data/same-flags.rs", "--help").unwrap();
-    scan!(out.stdout_output();
-        ("Argument: --help") => ()
-    )
-    .unwrap()
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/same-flags.rs")
+        .args(["--help"])
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+Argument: --help
+",
+        );
+
+    fixture.close();
 }

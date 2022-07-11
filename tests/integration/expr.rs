@@ -1,97 +1,154 @@
 #[test]
 fn test_expr_0() {
-    let out = rust_script!("-Zexpr", "-e", with_output_marker!("0")).unwrap();
-    scan!(out.stdout_output();
-        ("0") => ()
-    )
-    .unwrap()
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .args(["-Zexpr", "-e"])
+        .arg(with_output_marker!("0"))
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+0
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_expr_comma() {
-    let out = rust_script!("-Zexpr", "-e", with_output_marker!("[1, 2, 3]")).unwrap();
-    scan!(out.stdout_output();
-        ("[1, 2, 3]") => ()
-    )
-    .unwrap()
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .args(["-Zexpr", "-e"])
+        .arg(with_output_marker!("[1, 2, 3]"))
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+[1, 2, 3]
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_expr_dnc() {
-    let out = rust_script!("-Zexpr", "-e", "swing begin").unwrap();
-    assert!(!out.success());
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .args(["-Zexpr", "-e"])
+        .arg("swing-begin")
+        .assert()
+        .failure();
+
+    fixture.close();
 }
 
 #[test]
 fn test_expr_temporary() {
-    let out = rust_script!("-Zexpr", "-e", "[1].iter().max()").unwrap();
-    assert!(out.success());
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .args(["-Zexpr", "-e"])
+        .arg("[1].iter().max()")
+        .assert()
+        .success();
+
+    fixture.close();
 }
 
 #[test]
 fn test_expr_panic() {
-    let out = rust_script!("-Zexpr", "-e", with_output_marker!("panic!()")).unwrap();
-    assert!(!out.success());
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .args(["-Zexpr", "-e"])
+        .arg(with_output_marker!("panic!()"))
+        .assert()
+        .failure();
+
+    fixture.close();
 }
 
 #[test]
 fn test_expr_qmark() {
-    let code = with_output_marker!("\"42\".parse::<i32>()?.wrapping_add(1)");
-    let out = rust_script!("-Zexpr", "-e", code).unwrap();
-    scan!(out.stdout_output();
-        ("43") => ()
-    )
-    .unwrap();
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .args(["-Zexpr", "-e"])
+        .arg(with_output_marker!(
+            "\"42\".parse::<i32>()?.wrapping_add(1)"
+        ))
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+43
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_expr_template() {
     let template_dir = "tests/data/templates";
-    let out = rust_script!(
-        #[env(RUST_SCRIPT_DEBUG_TEMPLATE_PATH=template_dir)]
-        "-Zexpr",
-        "-t",
-        "shout",
-        "-e",
-        with_output_marker!(r#""no way? no way!""#)
-    )
-    .unwrap();
-    scan!(out.stdout_output();
-        ("NO WAY? NO WAY!") => ()
-    )
-    .unwrap();
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .args(["-Zexpr", "-e", "-t", "shout"])
+        .arg(with_output_marker!(r#""no way? no way!""#))
+        .env("RUST_SCRIPT_DEBUG_TEMPLATE_PATH", template_dir)
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+NO WAY? NO WAY!
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_expr_template_with_deps() {
     let template_dir = "tests/data/templates";
-    let out = rust_script!(
-        #[env(RUST_SCRIPT_DEBUG_TEMPLATE_PATH=template_dir)]
-        "-Zexpr",
-        "-t",
-        "boolinate",
-        "-e",
-        with_output_marker!(r#"true"#)
-    )
-    .unwrap();
-    scan!(out.stdout_output();
-        ("Some(())") => ()
-    )
-    .unwrap();
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .args(["-Zexpr", "-e", "-t", "boolinate"])
+        .arg(with_output_marker!("true"))
+        .env("RUST_SCRIPT_DEBUG_TEMPLATE_PATH", template_dir)
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+Some(())
+",
+        );
+
+    fixture.close();
 }
 
 #[test]
 fn test_expr_template_override_expr() {
     let template_dir = "tests/data/templates/override";
-    let out = rust_script!(
-        #[env(RUST_SCRIPT_DEBUG_TEMPLATE_PATH=template_dir)]
-        "-Zexpr",
-        "-e",
-        with_output_marker!(r#"true"#)
-    )
-    .unwrap();
-    scan!(out.stdout_output();
-        ("Some(())") => ()
-    )
-    .unwrap();
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .args(["-Zexpr", "-e"])
+        .arg(with_output_marker!("true"))
+        .env("RUST_SCRIPT_DEBUG_TEMPLATE_PATH", template_dir)
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+Some(())
+",
+        );
+
+    fixture.close();
 }
