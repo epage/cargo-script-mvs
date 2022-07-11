@@ -69,6 +69,7 @@ enum UnstableFlags {
     Test,
     Bench,
     ToolchainVersion,
+    Expr,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -323,12 +324,19 @@ fn parse_args() -> MainResult<Args> {
         }
     }
 
+    let expr = m.is_present("expr");
+    if expr && !unstable_flags.contains(&UnstableFlags::Expr) {
+        return Err(
+            "`--expr` is unstable and requires `-Z expr` (epage/cargo-script-mvs#72).".into(),
+        );
+    }
+
     Ok(Args {
         script,
         script_args,
         features: m.value_of("features").map(Into::into),
 
-        expr: m.is_present("expr"),
+        expr,
         loop_: m.is_present("loop"),
         count: m.is_present("count"),
 
