@@ -201,6 +201,7 @@ fn test_whitespace_before_main() {
 #[test]
 fn test_stable_toolchain() {
     let out = rust_script!(
+        "-Ztoolchain-version",
         "--toolchain-version",
         "stable",
         "tests/data/script-unstable-feature.rs"
@@ -213,6 +214,7 @@ fn test_stable_toolchain() {
 #[test]
 fn test_nightly_toolchain() {
     let out = rust_script!(
+        "-Ztoolchain-version",
         "--toolchain-version",
         "nightly",
         "tests/data/script-unstable-feature.rs"

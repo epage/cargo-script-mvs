@@ -68,6 +68,7 @@ struct Args {
 enum UnstableFlags {
     Test,
     Bench,
+    ToolchainVersion,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -312,6 +313,16 @@ fn parse_args() -> MainResult<Args> {
         }
     }
 
+    let toolchain_version = m.value_of("toolchain-version").map(Into::into);
+    if let Some(toolchain_version) = &toolchain_version {
+        if !unstable_flags.contains(&UnstableFlags::ToolchainVersion) {
+            return Err(
+                    format!("`--toolchain-version={}` is unstable and requires `-Z toolchain-version` (epage/cargo-script-mvs#36).", toolchain_version)
+                        .into(),
+                );
+        }
+    }
+
     Ok(Args {
         script,
         script_args,
@@ -332,7 +343,7 @@ fn parse_args() -> MainResult<Args> {
         build_kind,
         template: m.value_of("template").map(Into::into),
         list_templates: m.is_present("list-templates"),
-        toolchain_version: m.value_of("toolchain-version").map(Into::into),
+        toolchain_version,
         #[cfg(windows)]
         install_file_association: m.is_present("install-file-association"),
         #[cfg(windows)]
