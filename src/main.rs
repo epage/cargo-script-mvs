@@ -37,17 +37,13 @@ struct Args {
     features: Option<String>,
 
     expr: bool,
-    loop_: bool,
-    count: bool,
 
     pkg_path: Option<String>,
     gen_pkg_only: bool,
     cargo_output: bool,
     clear_cache: bool,
     debug: bool,
-    dep: Vec<String>,
     force: bool,
-    unstable_features: Vec<String>,
     build_kind: BuildKind,
     template: Option<String>,
     list_templates: bool,
@@ -69,6 +65,7 @@ enum UnstableFlags {
     Test,
     Bench,
     ToolchainVersion,
+    Expr,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -98,7 +95,7 @@ impl BuildKind {
 }
 
 fn parse_args() -> MainResult<Args> {
-    use clap::{Arg, ArgGroup, Command};
+    use clap::{Arg, Command};
     let version = option_env!("CARGO_PKG_VERSION").unwrap_or("unknown");
     let about = r#"Compiles and runs a Rust script."#;
 
@@ -106,142 +103,134 @@ fn parse_args() -> MainResult<Args> {
         .version(version)
         .about(about)
         .trailing_var_arg(true)
-        .arg(Arg::new("script")
-            .index(1)
-            .help("Script file or expression to execute.")
-            .required_unless_present_any(if cfg!(windows) {
-                vec!["clear-cache", "list-templates", "install-file-association", "uninstall-file-association"]
-            } else {
-                vec!["clear-cache", "list-templates"]
-            })
-            .conflicts_with_all(if cfg!(windows) {
-                &["list-templates", "install-file-association", "uninstall-file-association"]
-            } else {
-                &["list-templates"]
-            })
-            .multiple_values(true)
+        .arg(
+            Arg::new("script")
+                .index(1)
+                .help("Script file or expression to execute.")
+                .required_unless_present_any(if cfg!(windows) {
+                    vec![
+                        "clear-cache",
+                        "list-templates",
+                        "install-file-association",
+                        "uninstall-file-association",
+                    ]
+                } else {
+                    vec!["clear-cache", "list-templates"]
+                })
+                .conflicts_with_all(if cfg!(windows) {
+                    &[
+                        "list-templates",
+                        "install-file-association",
+                        "uninstall-file-association",
+                    ]
+                } else {
+                    &["list-templates"]
+                })
+                .multiple_values(true),
         )
-        .arg(Arg::new("expr")
-            .help("Execute <script> as a literal expression and display the result.")
-            .long("expr")
-            .short('e')
-            .takes_value(false)
-            .requires("script")
-        )
-        .arg(Arg::new("loop")
-            .help("Execute <script> as a literal closure once for each line from stdin.")
-            .long("loop")
-            .short('l')
-            .takes_value(false)
-            .requires("script")
-        )
-        .group(ArgGroup::new("expr_or_loop")
-            .args(&["expr", "loop"])
+        .arg(
+            Arg::new("expr")
+                .help("Execute <script> as a literal expression and display the result.")
+                .long("expr")
+                .short('e')
+                .takes_value(false)
+                .requires("script"),
         )
         /*
         Options that impact the script being executed.
         */
-        .arg(Arg::new("cargo-output")
-            .help("Show output from cargo when building.")
-            .short('o')
-            .long("cargo-output")
-            .requires("script")
+        .arg(
+            Arg::new("cargo-output")
+                .help("Show output from cargo when building.")
+                .short('o')
+                .long("cargo-output")
+                .requires("script"),
         )
-        .arg(Arg::new("count")
-            .help("Invoke the loop closure with two arguments: line, and line number.")
-            .long("count")
-            .requires("loop")
+        .arg(
+            Arg::new("debug")
+                .help("Build a debug executable, not an optimised one.")
+                .long("debug"),
         )
-        .arg(Arg::new("debug")
-            .help("Build a debug executable, not an optimised one.")
-            .long("debug")
+        .arg(
+            Arg::new("features")
+                .help("Cargo features to pass when building and running.")
+                .long("features")
+                .takes_value(true),
         )
-        .arg(Arg::new("dep")
-            .help("Add an additional Cargo dependency. Each SPEC can be either just the package name (which will assume the latest version) or a full `name=version` spec.")
-            .long("dep")
-            .short('d')
-            .takes_value(true)
-            .multiple_occurrences(true)
-            .number_of_values(1)
-        )
-        .arg(Arg::new("features")
-             .help("Cargo features to pass when building and running.")
-             .long("features")
-             .takes_value(true)
-        )
-        .arg(Arg::new("unstable_features")
-            .help("Add a #![feature] declaration to the crate.")
-            .long("unstable-feature")
-            .short('u')
-            .takes_value(true)
-            .multiple_occurrences(true)
-            .requires("expr_or_loop")
-        )
-
         /*
         Options that change how rust-script itself behaves, and don't alter what the script will do.
         */
-        .arg(Arg::new("clear-cache")
-            .help("Clears out the script cache.")
-            .long("clear-cache")
+        .arg(
+            Arg::new("clear-cache")
+                .help("Clears out the script cache.")
+                .long("clear-cache"),
         )
-        .arg(Arg::new("force")
-            .help("Force the script to be rebuilt.")
-            .long("force")
-            .requires("script")
+        .arg(
+            Arg::new("force")
+                .help("Force the script to be rebuilt.")
+                .long("force")
+                .requires("script"),
         )
-        .arg(Arg::new("gen_pkg_only")
-            .help("Generate the Cargo package, but don't compile or run it.")
-            .long("gen-pkg-only")
-            .requires("script")
-            .conflicts_with_all(&["debug", "force", "test", "bench"])
+        .arg(
+            Arg::new("gen_pkg_only")
+                .help("Generate the Cargo package, but don't compile or run it.")
+                .long("gen-pkg-only")
+                .requires("script")
+                .conflicts_with_all(&["debug", "force", "test", "bench"]),
         )
-        .arg(Arg::new("pkg_path")
-            .help("Specify where to place the generated Cargo package.")
-            .long("pkg-path")
-            .takes_value(true)
-            .requires("script")
-            .conflicts_with_all(&["clear-cache", "force"])
+        .arg(
+            Arg::new("pkg_path")
+                .help("Specify where to place the generated Cargo package.")
+                .long("pkg-path")
+                .takes_value(true)
+                .requires("script")
+                .conflicts_with_all(&["clear-cache", "force"]),
         )
-        .arg(Arg::new("test")
-            .help("Compile and run tests.")
-            .long("test")
-            .conflicts_with_all(&["bench", "debug", "force"])
+        .arg(
+            Arg::new("test")
+                .help("Compile and run tests.")
+                .long("test")
+                .conflicts_with_all(&["bench", "debug", "force"]),
         )
-        .arg(Arg::new("bench")
-            .help("Compile and run benchmarks. Requires a nightly toolchain.")
-            .long("bench")
-            .conflicts_with_all(&["test", "debug", "force"])
+        .arg(
+            Arg::new("bench")
+                .help("Compile and run benchmarks. Requires a nightly toolchain.")
+                .long("bench")
+                .conflicts_with_all(&["test", "debug", "force"]),
         )
-        .arg(Arg::new("template")
-            .help("Specify a template to use for expression scripts.")
-            .long("template")
-            .short('t')
-            .takes_value(true)
-            .requires("expr")
+        .arg(
+            Arg::new("template")
+                .help("Specify a template to use for expression scripts.")
+                .long("template")
+                .short('t')
+                .takes_value(true)
+                .requires("expr"),
         )
-        .arg(Arg::new("toolchain-version")
-            .help("Build the script using the given toolchain version.")
-            .long("toolchain-version")
-            // "channel"
-            .short('c')
-            .takes_value(true)
-            // FIXME: remove if benchmarking is stabilized
-            .conflicts_with("bench")
+        .arg(
+            Arg::new("toolchain-version")
+                .help("Build the script using the given toolchain version.")
+                .long("toolchain-version")
+                // "channel"
+                .short('c')
+                .takes_value(true)
+                // FIXME: remove if benchmarking is stabilized
+                .conflicts_with("bench"),
         )
-        .arg(Arg::new("list-templates")
-            .help("List the available templates.")
-            .long("list-templates")
-            .takes_value(false)
+        .arg(
+            Arg::new("list-templates")
+                .help("List the available templates.")
+                .long("list-templates")
+                .takes_value(false),
         )
-        .arg(Arg::new("unstable_flags")
-            .help("Unstable (nightly-only) flags")
-            .short('Z')
-            .value_name("FLAG")
-            .global(true)
-            .takes_value(true)
-            .value_parser(clap::value_parser!(UnstableFlags))
-            .action(clap::ArgAction::Append)
+        .arg(
+            Arg::new("unstable_flags")
+                .help("Unstable (nightly-only) flags")
+                .short('Z')
+                .value_name("FLAG")
+                .global(true)
+                .takes_value(true)
+                .value_parser(clap::value_parser!(UnstableFlags))
+                .action(clap::ArgAction::Append),
         );
 
     #[cfg(windows)]
@@ -257,19 +246,11 @@ fn parse_args() -> MainResult<Args> {
                 .long("uninstall-file-association"),
         )
         .group(
-            ArgGroup::new("file-association")
+            clap::ArgGroup::new("file-association")
                 .args(&["install-file-association", "uninstall-file-association"]),
         );
 
     let m = app.get_matches();
-
-    fn owned_vec_string<'a, I>(v: Option<I>) -> Vec<String>
-    where
-        I: ::std::iter::Iterator<Item = &'a str>,
-    {
-        v.map(|itr| itr.map(Into::into).collect())
-            .unwrap_or_default()
-    }
 
     let unstable_flags = m
         .get_many::<UnstableFlags>("unstable_flags")
@@ -323,23 +304,26 @@ fn parse_args() -> MainResult<Args> {
         }
     }
 
+    let expr = m.is_present("expr");
+    if expr && !unstable_flags.contains(&UnstableFlags::Expr) {
+        return Err(
+            "`--expr` is unstable and requires `-Z expr` (epage/cargo-script-mvs#72).".into(),
+        );
+    }
+
     Ok(Args {
         script,
         script_args,
         features: m.value_of("features").map(Into::into),
 
-        expr: m.is_present("expr"),
-        loop_: m.is_present("loop"),
-        count: m.is_present("count"),
+        expr,
 
         pkg_path: m.value_of("pkg_path").map(Into::into),
         gen_pkg_only: m.is_present("gen_pkg_only"),
         cargo_output: m.is_present("cargo-output"),
         clear_cache: m.is_present("clear-cache"),
         debug: m.is_present("debug"),
-        dep: owned_vec_string(m.values_of("dep")),
         force: m.is_present("force"),
-        unstable_features: owned_vec_string(m.values_of("unstable_features")),
         build_kind,
         template: m.value_of("template").map(Into::into),
         list_templates: m.is_present("list-templates"),
@@ -402,8 +386,8 @@ fn try_main() -> MainResult<i32> {
     let script_path: PathBuf;
     let content: String;
 
-    let input = match (args.script.clone().unwrap(), args.expr, args.loop_) {
-        (script, false, false) => {
+    let input = match (args.script.clone().unwrap(), args.expr) {
+        (script, false) => {
             let (path, mut file) =
                 find_script(&script).ok_or(format!("could not find script: {}", script))?;
 
@@ -422,16 +406,9 @@ fn try_main() -> MainResult<i32> {
 
             Input::File(&script_name, &script_path, &content, mtime)
         }
-        (expr, true, false) => {
+        (expr, true) => {
             content = expr;
             Input::Expr(&content, args.template.as_deref())
-        }
-        (loop_, false, true) => {
-            content = loop_;
-            Input::Loop(&content, args.count)
-        }
-        (_, _, _) => {
-            panic!("Internal error: Invalid args");
         }
     };
     info!("input: {:?}", input);
@@ -446,60 +423,7 @@ fn try_main() -> MainResult<i32> {
     std::env::set_var("RUST_SCRIPT_PKG_NAME", input.package_name());
     std::env::set_var("RUST_SCRIPT_BASE_PATH", input.base_path());
 
-    // Sort out the dependencies.  We want to do a few things:
-    // - Sort them so that they hash consistently.
-    // - Check for duplicates.
-    // - Expand `pkg` into `pkg=*`.
-    let dependencies_from_args = {
-        use std::collections::HashMap;
-
-        let mut deps: HashMap<String, String> = HashMap::new();
-        for dep in args.dep.iter().cloned() {
-            // Append '=*' if it needs it.
-            let dep = match dep.find('=') {
-                Some(_) => dep,
-                None => dep + "=*",
-            };
-
-            let mut parts = dep.splitn(2, '=');
-            let name = parts.next().expect("dependency is missing name");
-            let version = parts.next().expect("dependency is missing version");
-            assert!(
-                parts.next().is_none(),
-                "dependency somehow has three parts?!"
-            );
-
-            if name.is_empty() {
-                return Err(("cannot have empty dependency package name").into());
-            } else if version.is_empty() {
-                return Err(("cannot have empty dependency version").into());
-            }
-
-            if deps.insert(name.into(), version.into()).is_some() {
-                return Err((format!("duplicated dependency: '{}'", name)).into());
-            }
-        }
-
-        // Sort and turn into a regular vec.
-        let mut deps: Vec<(String, String)> = deps.into_iter().collect();
-        deps.sort();
-        deps
-    };
-
-    // Generate the prelude items, if we need any. Ensure consistent and *valid* sorting.
-    let prelude_items = {
-        let unstable_features = args
-            .unstable_features
-            .iter()
-            .map(|uf| format!("#![feature({})]", uf));
-
-        let mut items: Vec<_> = unstable_features.collect();
-        items.sort();
-        items
-    };
-    info!("prelude_items: {:?}", prelude_items);
-
-    let action = decide_action_for(&input, dependencies_from_args, prelude_items, &args)?;
+    let action = decide_action_for(&input, &args)?;
     info!("action: {:?}", action);
 
     gen_pkg_and_compile(&input, &action)?;
@@ -769,12 +693,6 @@ struct PackageMetadata {
     /// Was the script compiled in debug mode?
     debug: bool,
 
-    /// Sorted list of dependencies.
-    deps: Vec<(String, String)>,
-
-    /// Sorted list of injected prelude items.
-    prelude: Vec<String>,
-
     /// Cargo features
     features: Option<String>,
 
@@ -788,17 +706,8 @@ struct PackageMetadata {
 /**
 For the given input, this constructs the package metadata and checks the cache to see what should be done.
 */
-fn decide_action_for(
-    input: &Input,
-    deps: Vec<(String, String)>,
-    prelude: Vec<String>,
-    args: &Args,
-) -> MainResult<InputAction> {
-    let input_id = {
-        let deps_iter = deps.iter().map(|&(ref n, ref v)| (n as &str, v as &str));
-        // Again, also fucked if we can't work this out.
-        input.compute_id(deps_iter).unwrap()
-    };
+fn decide_action_for(input: &Input, args: &Args) -> MainResult<InputAction> {
+    let input_id = input.compute_id();
     info!("id: {:?}", input_id);
 
     let (pkg_path, using_cache) = args
@@ -813,7 +722,7 @@ fn decide_action_for(
     info!("pkg_path: {:?}", pkg_path);
     info!("using_cache: {:?}", using_cache);
 
-    let (mani_str, script_str) = manifest::split_input(input, &deps, &prelude, &input_id)?;
+    let (mani_str, script_str) = manifest::split_input(input, &input_id)?;
 
     // Forcibly override some flags based on build kind.
     let (debug, force) = match args.build_kind {
@@ -828,15 +737,12 @@ fn decide_action_for(
                 (Some(path.to_string_lossy().into_owned()), Some(mtime), None)
             }
             Input::Expr(_, template) => (None, None, template),
-            Input::Loop(..) => (None, None, None),
         };
         PackageMetadata {
             path,
             modified: mtime,
             template: template.map(Into::into),
             debug,
-            deps,
-            prelude,
             features: args.features.clone(),
             manifest_hash: hash_str(&mani_str),
             script_hash: hash_str(&script_str),
@@ -1002,13 +908,6 @@ pub enum Input<'a> {
     The tuple member is: the script contents, and the template (if any).
     */
     Expr(&'a str, Option<&'a str>),
-
-    /**
-    The input is a loop expression.
-
-    The tuple member is: the script contents, whether the `--count` flag was given.
-    */
-    Loop(&'a str, bool),
 }
 
 impl<'a> Input<'a> {
@@ -1016,12 +915,9 @@ impl<'a> Input<'a> {
     Return the path to the script, if it has one.
     */
     pub const fn path(&self) -> Option<&Path> {
-        use crate::Input::*;
-
         match *self {
-            File(_, path, _, _) => Some(path),
-            Expr(..) => None,
-            Loop(..) => None,
+            Self::File(_, path, _, _) => Some(path),
+            Self::Expr(..) => None,
         }
     }
 
@@ -1031,12 +927,9 @@ impl<'a> Input<'a> {
     Currently, nothing is done to ensure this, other than hoping *really hard* that we don't get fed some excessively bizzare input filename.
     */
     pub const fn safe_name(&self) -> &str {
-        use crate::Input::*;
-
         match *self {
-            File(name, _, _, _) => name,
-            Expr(..) => "expr",
-            Loop(..) => "loop",
+            Self::File(name, _, _, _) => name,
+            Self::Expr(..) => "expr",
         }
     }
 
@@ -1074,11 +967,11 @@ impl<'a> Input<'a> {
     */
     pub fn base_path(&self) -> PathBuf {
         match *self {
-            Input::File(_, path, _, _) => path
+            Self::File(_, path, _, _) => path
                 .parent()
                 .expect("couldn't get parent directory for file input base path")
                 .into(),
-            Input::Expr(..) | Input::Loop(..) => {
+            Self::Expr(..) => {
                 std::env::current_dir().expect("couldn't get current directory for input base path")
             }
         }
@@ -1087,26 +980,9 @@ impl<'a> Input<'a> {
     // Compute the package ID for the input.
     // This is used as the name of the cache folder into which the Cargo package
     // will be generated.
-    pub fn compute_id<'dep, DepIt>(&self, deps: DepIt) -> MainResult<OsString>
-    where
-        DepIt: IntoIterator<Item = (&'dep str, &'dep str)>,
-    {
-        use crate::Input::*;
-
-        let hash_deps = || {
-            let mut hasher = Sha1::new();
-            for dep in deps {
-                hasher.update(b"dep=");
-                hasher.update(dep.0);
-                hasher.update(b"=");
-                hasher.update(dep.1);
-                hasher.update(b";");
-            }
-            hasher
-        };
-
+    pub fn compute_id(&self) -> OsString {
         match *self {
-            File(_, path, _, _) => {
+            Self::File(_, path, _, _) => {
                 let mut hasher = Sha1::new();
 
                 // Hash the path to the script.
@@ -1116,10 +992,10 @@ impl<'a> Input<'a> {
 
                 let mut id = OsString::new();
                 id.push(&*digest);
-                Ok(id)
+                id
             }
-            Expr(content, template) => {
-                let mut hasher = hash_deps();
+            Self::Expr(content, template) => {
+                let mut hasher = Sha1::new();
 
                 hasher.update("template:");
                 hasher.update(template.unwrap_or(""));
@@ -1131,22 +1007,7 @@ impl<'a> Input<'a> {
 
                 let mut id = OsString::new();
                 id.push(&*digest);
-                Ok(id)
-            }
-            Loop(content, count) => {
-                let mut hasher = hash_deps();
-
-                // Make sure to include the [non-]presence of the `--count` flag in the flag, since it changes the actual generated script output.
-                hasher.update("count:");
-                hasher.update(if count { "true;" } else { "false;" });
-
-                hasher.update(content);
-                let mut digest = format!("{:x}", hasher.finalize());
-                digest.truncate(consts::ID_DIGEST_LEN_MAX);
-
-                let mut id = OsString::new();
-                id.push(&*digest);
-                Ok(id)
+                id
             }
         }
     }

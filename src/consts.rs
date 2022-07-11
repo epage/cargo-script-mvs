@@ -11,15 +11,11 @@ What follows are the templates used to wrap script input.
 /// Substitution for the script body.
 pub const SCRIPT_BODY_SUB: &str = "script";
 
-/// Substitution for the script prelude.
-pub const SCRIPT_PRELUDE_SUB: &str = "prelude";
-
 /// The template used for script file inputs.
 pub const FILE_TEMPLATE: &str = r#"#{script}"#;
 
 /// The template used for `--expr` input.
 pub const EXPR_TEMPLATE: &str = r#"
-#{prelude}
 use std::any::{Any, TypeId};
 
 fn main() {

@@ -39,12 +39,7 @@ Splits input into a complete Cargo manifest and unadultered Rust source.
 
 Unless we have prelude items to inject, in which case it will be *slightly* adulterated.
 */
-pub fn split_input(
-    input: &Input,
-    deps: &[(String, String)],
-    prelude_items: &[String],
-    input_id: &OsString,
-) -> MainResult<(String, String)> {
+pub fn split_input(input: &Input, input_id: &OsString) -> MainResult<(String, String)> {
     fn contains_main_method(line: &str) -> bool {
         let line = line.trim_start();
         line.starts_with("fn main(")
@@ -54,9 +49,8 @@ pub fn split_input(
     }
 
     let template_buf;
-    let (part_mani, source, template, sub_prelude) = match *input {
+    let (part_mani, source, template) = match *input {
         Input::File(_, _, content, _) => {
-            assert_eq!(prelude_items.len(), 0);
             let content = strip_shebang(content);
             let (manifest, source) =
                 find_embedded_manifest(content).unwrap_or((Manifest::Toml(""), content));
@@ -66,39 +60,19 @@ pub fn split_input(
             } else {
                 format!("fn main() -> Result<(), Box<dyn std::error::Error+Sync+Send>> {{\n    {{\n    {}    }}\n    Ok(())\n}}", source)
             };
-            (manifest, source, templates::get_template("file")?, false)
+            (manifest, source, templates::get_template("file")?)
         }
         Input::Expr(content, template) => {
             template_buf = templates::get_template(template.unwrap_or("expr"))?;
             let (manifest, template_src) = find_embedded_manifest(&template_buf)
                 .unwrap_or((Manifest::Toml(""), &template_buf));
-            (manifest, content.to_string(), template_src.into(), true)
-        }
-        Input::Loop(content, count) => {
-            let templ = if count { "loop-count" } else { "loop" };
-            (
-                Manifest::Toml(""),
-                content.to_string(),
-                templates::get_template(templ)?,
-                true,
-            )
+            (manifest, content.to_string(), template_src.into())
         }
     };
 
-    let mut prelude_str;
     let mut subs = HashMap::with_capacity(2);
 
     subs.insert(consts::SCRIPT_BODY_SUB, &source[..]);
-
-    if sub_prelude {
-        prelude_str =
-            String::with_capacity(prelude_items.iter().map(|i| i.len() + 1).sum::<usize>());
-        for i in prelude_items {
-            prelude_str.push_str(i);
-            prelude_str.push('\n');
-        }
-        subs.insert(consts::SCRIPT_PRELUDE_SUB, &prelude_str[..]);
-    }
 
     let source = templates::expand(&template, &subs)?;
 
@@ -110,10 +84,7 @@ pub fn split_input(
 
     // It's-a mergin' time!
     let def_mani = default_manifest(input, input_id)?;
-    let dep_mani = deps_manifest(deps)?;
-
     let mani = merge_manifest(def_mani, part_mani)?;
-    let mani = merge_manifest(mani, dep_mani)?;
 
     // Fix up relative paths.
     let mani = fix_manifest_paths(mani, &input.base_path())?;
@@ -130,7 +101,7 @@ fn test_split_input() {
     let input_id = OsString::from("input_id");
     macro_rules! si {
         ($i:expr) => {
-            split_input(&$i, &[], &[], &input_id).ok()
+            split_input(&$i, &input_id).ok()
         };
     }
 
@@ -150,8 +121,6 @@ fn test_split_input() {
             r#"[[bin]]
 name = "n_input_id"
 path = "n.rs"
-
-[dependencies]
 
 [package]
 authors = ["Anonymous"]
@@ -173,8 +142,6 @@ fn main() {}
             r#"[[bin]]
 name = "n_input_id"
 path = "n.rs"
-
-[dependencies]
 
 [package]
 authors = ["Anonymous"]
@@ -199,8 +166,6 @@ fn main() {}
             r#"[[bin]]
 name = "n_input_id"
 path = "n.rs"
-
-[dependencies]
 
 [package]
 authors = ["Anonymous"]
@@ -1038,36 +1003,6 @@ fn default_manifest(input: &Input, input_id: &OsString) -> MainResult<toml::valu
     toml::from_str(&mani_str).map_err(|e| {
         MainError::Tag(
             "could not parse default manifest".into(),
-            Box::new(MainError::Other(Box::new(e))),
-        )
-    })
-}
-
-/**
-Generates a partial Cargo manifest containing the specified dependencies.
-*/
-fn deps_manifest(deps: &[(String, String)]) -> MainResult<toml::value::Table> {
-    let mut mani_str = String::new();
-    mani_str.push_str("[dependencies]\n");
-
-    for &(ref name, ref ver) in deps {
-        mani_str.push_str(name);
-        mani_str.push('=');
-
-        // We only want to quote the version if it *isn't* a table.
-        let quotes = match ver.starts_with('{') {
-            true => "",
-            false => "\"",
-        };
-        mani_str.push_str(quotes);
-        mani_str.push_str(ver);
-        mani_str.push_str(quotes);
-        mani_str.push('\n');
-    }
-
-    toml::from_str(&mani_str).map_err(|e| {
-        MainError::Tag(
-            "could not parse dependency manifest".into(),
             Box::new(MainError::Other(Box::new(e))),
         )
     })

@@ -1,13 +1,4 @@
 #[test]
-fn test_script_explicit() {
-    let out = rust_script!("-d", "boolinator", "tests/data/script-explicit.rs").unwrap();
-    scan!(out.stdout_output();
-        ("Some(1)") => ()
-    )
-    .unwrap()
-}
-
-#[test]
 fn test_script_features() {
     let out = rust_script!("--features", "dont-panic", "tests/data/script-features.rs").unwrap();
     scan!(out.stdout_output();
