@@ -12,8 +12,6 @@ extern crate scan_rules;
 #[macro_use]
 mod util;
 
-mod tests {
-    mod expr;
-    mod others;
-    mod script;
-}
+mod expr;
+mod others;
+mod script;
