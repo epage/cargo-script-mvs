@@ -39,7 +39,6 @@ struct Args {
     expr: bool,
 
     pkg_path: Option<String>,
-    gen_pkg_only: bool,
     cargo_output: bool,
     clear_cache: bool,
     debug: bool,
@@ -170,13 +169,6 @@ fn parse_args() -> MainResult<Args> {
                 .help("Force the script to be rebuilt.")
                 .long("force")
                 .requires("script"),
-        )
-        .arg(
-            Arg::new("gen_pkg_only")
-                .help("Generate the Cargo package, but don't compile or run it.")
-                .long("gen-pkg-only")
-                .requires("script")
-                .conflicts_with_all(&["debug", "force", "test", "bench"]),
         )
         .arg(
             Arg::new("pkg_path")
@@ -319,7 +311,6 @@ fn parse_args() -> MainResult<Args> {
         expr,
 
         pkg_path: m.value_of("pkg_path").map(Into::into),
-        gen_pkg_only: m.is_present("gen_pkg_only"),
         cargo_output: m.is_present("cargo-output"),
         clear_cache: m.is_present("clear-cache"),
         debug: m.is_present("debug"),
@@ -441,15 +432,13 @@ fn try_main() -> MainResult<i32> {
         })
     };
 
-    let exit_code = if action.execute {
+    let exit_code = {
         let cmd_name = action.build_kind.exec_command();
         info!("running `cargo {}`", cmd_name);
         let run_quietly = !action.cargo_output;
         let mut cmd = action.cargo(cmd_name, &args.script_args, run_quietly)?;
 
         cmd.status().map(|st| st.code().unwrap_or(1))?
-    } else {
-        0
     };
 
     Ok(exit_code)
@@ -623,9 +612,6 @@ struct InputAction {
     /// Emit a metadata file?
     emit_metadata: bool,
 
-    /// Execute the compiled binary?
-    execute: bool,
-
     /// Directory where the package should live.
     pkg_path: PathBuf,
 
@@ -765,7 +751,6 @@ fn decide_action_for(input: &Input, args: &Args) -> MainResult<InputAction> {
         cargo_output: args.cargo_output,
         force_compile: force,
         emit_metadata: true,
-        execute: true,
         pkg_path,
         using_cache,
         toolchain_version,
@@ -783,11 +768,6 @@ fn decide_action_for(input: &Input, args: &Args) -> MainResult<InputAction> {
                 ..action
             })
         }
-    }
-
-    // If we were told to only generate the package, we need to stop *now*
-    if args.gen_pkg_only {
-        bail!(execute: false)
     }
 
     // If we're not doing a regular build, stop.
