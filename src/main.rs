@@ -1050,6 +1050,7 @@ fn cargo(
     let mut cmd = Command::new("cargo");
 
     // Always specify a toolchain to avoid being affected by rust-version(.toml) files:
+    dbg!(toolchain_version);
     cmd.arg(format!("+{}", toolchain_version.unwrap_or("stable")));
 
     cmd.arg(cmd_name);
@@ -1082,6 +1083,7 @@ fn cargo(
         cmd.args(script_args.iter());
     }
 
+    dbg!(&cmd);
     Ok(cmd)
 }
 
