@@ -391,6 +391,7 @@ fn test_stable_toolchain() {
 #[test]
 fn test_nightly_toolchain() {
     let fixture = crate::util::Fixture::new();
+
     fixture
         .cmd()
         .args(["-Ztoolchain-version", "--toolchain-version", "nightly"])
