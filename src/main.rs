@@ -351,7 +351,7 @@ fn checkset_tracing(bt: &'static str) {
     let _u = match std::env::var_os("RUST_BACKTRACE") {
         Some(v) => v.into_string().unwrap(),
         None => {
-            std::env::set_var("RUST_BACKTRACE", bt); 
+            std::env::set_var("RUST_BACKTRACE", bt);
             bt.to_string()
         }
     };
