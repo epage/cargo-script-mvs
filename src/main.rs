@@ -331,6 +331,10 @@ fn main() {
     env_logger::init();
 
     let stderr = &mut std::io::stderr();
+
+    //Set back trace early on if it is not set
+    checkset_tracing("1");
+
     match try_main() {
         Ok(0) => (),
         Ok(code) => {
@@ -341,6 +345,16 @@ fn main() {
             std::process::exit(1);
         }
     }
+}
+
+fn checkset_tracing(bt: &'static str) {
+    let _u = match std::env::var_os("RUST_BACKTRACE") {
+        Some(v) => v.into_string().unwrap(),
+        None => {
+            std::env::set_var("RUST_BACKTRACE", bt); 
+            bt.to_string()
+        }
+    };
 }
 
 fn try_main() -> MainResult<i32> {
