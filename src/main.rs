@@ -346,11 +346,10 @@ fn main() {
 
 //Set back trace on if it is not set
 fn check_tracing() -> String {
-    let _u = match std::env::var_os("RUST_BACKTRACE") {
+    match std::env::var_os("RUST_BACKTRACE") {
         Some(v) => v.into_string().unwrap(),
         None => "1".to_string(),
-    };
-    _u
+    }
 }
 
 fn try_main() -> MainResult<i32> {
