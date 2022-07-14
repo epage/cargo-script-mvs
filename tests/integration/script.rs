@@ -10,7 +10,8 @@ fn test_script_override_backtrace() {
         .stderr_matches(
             "...
 thread 'main' panicked at 'a pink elephant!', script-override-backtrace.rs:6:5
-...",
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+",
         );
 
     fixture.close();
