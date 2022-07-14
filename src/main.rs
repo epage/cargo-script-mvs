@@ -344,14 +344,6 @@ fn main() {
     }
 }
 
-//Get back trace envvar value, return "1" if not set
-fn check_tracing() -> String {
-    match std::env::var_os("RUST_BACKTRACE") {
-        Some(v) => v.into_string().unwrap(),
-        None => "1".to_string(),
-    }
-}
-
 fn try_main() -> MainResult<i32> {
     let args = parse_args()?;
     info!("Arguments: {:?}", args);
@@ -443,11 +435,8 @@ fn try_main() -> MainResult<i32> {
 
     let exit_code = {
         let cmd_name = action.build_kind.exec_command();
-        info!(
-            "running `RUST_BACKTRACE={} cargo {}`",
-            check_tracing(),
-            cmd_name
-        );
+        info!("running `cargo {}`", cmd_name);
+
         let run_quietly = !action.cargo_output;
         let mut cmd = action.cargo(cmd_name, &args.script_args, run_quietly)?;
 
@@ -1063,7 +1052,10 @@ fn cargo(
     let mut cmd = Command::new("cargo");
 
     // Set tracing on if not set
-    cmd.env("RUST_BACKTRACE", check_tracing());
+    if std::env::var_os("RUST_BACKTRACE").is_none() {
+        cmd.env("RUST_BACKTRACE", "1");
+        info!("setting RUST_BACKTRACE=1 for this cargo run");
+    }
 
     // Always specify a toolchain to avoid being affected by rust-version(.toml) files:
     cmd.arg(format!("+{}", toolchain_version.unwrap_or("stable")));
