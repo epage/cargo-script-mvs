@@ -332,9 +332,6 @@ fn main() {
 
     let stderr = &mut std::io::stderr();
 
-    //Set back trace early on if it is not set
-    checkset_tracing("1");
-
     match try_main() {
         Ok(0) => (),
         Ok(code) => {
@@ -347,14 +344,13 @@ fn main() {
     }
 }
 
-fn checkset_tracing(bt: &'static str) {
+//Set back trace on if it is not set
+fn check_tracing(bt: &'static str) -> String {
     let _u = match std::env::var_os("RUST_BACKTRACE") {
         Some(v) => v.into_string().unwrap(),
-        None => {
-            std::env::set_var("RUST_BACKTRACE", bt);
-            bt.to_string()
-        }
+        None => bt.to_string(),
     };
+    _u
 }
 
 fn try_main() -> MainResult<i32> {
@@ -448,7 +444,11 @@ fn try_main() -> MainResult<i32> {
 
     let exit_code = {
         let cmd_name = action.build_kind.exec_command();
-        info!("running `cargo {}`", cmd_name);
+        info!(
+            "running `RUST_BACKTRACE={} cargo {}`",
+            check_tracing("1"),
+            cmd_name
+        );
         let run_quietly = !action.cargo_output;
         let mut cmd = action.cargo(cmd_name, &args.script_args, run_quietly)?;
 
@@ -1062,6 +1062,9 @@ fn cargo(
     run_quietly: bool,
 ) -> MainResult<Command> {
     let mut cmd = Command::new("cargo");
+
+    // Set tracing on if not set
+    cmd.env("RUST_BACKTRACE", check_tracing("1"));
 
     // Always specify a toolchain to avoid being affected by rust-version(.toml) files:
     cmd.arg(format!("+{}", toolchain_version.unwrap_or("stable")));
