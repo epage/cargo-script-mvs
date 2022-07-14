@@ -344,7 +344,7 @@ fn main() {
     }
 }
 
-//Set back trace on if it is not set
+//Get back trace envvar value, return "1" if not set
 fn check_tracing() -> String {
     match std::env::var_os("RUST_BACKTRACE") {
         Some(v) => v.into_string().unwrap(),
