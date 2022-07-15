@@ -112,40 +112,6 @@ Hello, World!
 }
 
 #[test]
-fn test_script_short() {
-    let fixture = crate::util::Fixture::new();
-    fixture
-        .cmd()
-        .arg("tests/data/script-short.rs")
-        .assert()
-        .success()
-        .stdout_eq(
-            "--output--
-Some(1)
-",
-        );
-
-    fixture.close();
-}
-
-#[test]
-fn test_script_short_without_main() {
-    let fixture = crate::util::Fixture::new();
-    fixture
-        .cmd()
-        .arg("tests/data/script-short-without-main.rs")
-        .assert()
-        .success()
-        .stdout_eq(
-            "--output--
-Some(1)
-",
-        );
-
-    fixture.close();
-}
-
-#[test]
 fn test_script_test() {
     let fixture = crate::util::Fixture::new();
     fixture

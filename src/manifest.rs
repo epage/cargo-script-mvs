@@ -14,9 +14,6 @@ use crate::Input;
 use log::{error, info};
 use std::ffi::OsString;
 
-static RE_SHORT_MANIFEST: once_cell::sync::Lazy<Regex> = once_cell::sync::Lazy::new(|| {
-    Regex::new(r"^(?i)\s*//\s*cargo-deps\s*:(.*?)(\r\n|\n)").unwrap()
-});
 static RE_MARGIN: once_cell::sync::Lazy<Regex> =
     once_cell::sync::Lazy::new(|| Regex::new(r"^\s*\*( |$)").unwrap());
 static RE_SPACE: once_cell::sync::Lazy<Regex> =
@@ -186,59 +183,6 @@ fn main() {}
 
     assert_eq!(
         si!(f(r#"
-// Cargo-Deps: time="0.1.25"
-fn main() {}
-"#)),
-        r!(
-            r#"[[bin]]
-name = "n_input_id"
-path = "n.rs"
-
-[dependencies]
-time = "0.1.25"
-
-[package]
-authors = ["Anonymous"]
-edition = "2018"
-name = "n"
-version = "0.1.0"
-"#,
-            r#"
-// Cargo-Deps: time="0.1.25"
-fn main() {}
-"#
-        )
-    );
-
-    assert_eq!(
-        si!(f(r#"
-// Cargo-Deps: time="0.1.25", libc="0.2.5"
-fn main() {}
-"#)),
-        r!(
-            r#"[[bin]]
-name = "n_input_id"
-path = "n.rs"
-
-[dependencies]
-libc = "0.2.5"
-time = "0.1.25"
-
-[package]
-authors = ["Anonymous"]
-edition = "2018"
-name = "n"
-version = "0.1.0"
-"#,
-            r#"
-// Cargo-Deps: time="0.1.25", libc="0.2.5"
-fn main() {}
-"#
-        )
-    );
-
-    assert_eq!(
-        si!(f(r#"
 /*!
 Here is a manifest:
 
@@ -329,8 +273,6 @@ enum Manifest<'s> {
     /// The manifest is a valid TOML fragment (owned).
     // TODO: Change to Cow<'s, str>.
     TomlOwned(String),
-    /// The manifest is a comma-delimited list of dependencies.
-    DepList(&'s str),
 }
 
 impl<'s> Manifest<'s> {
@@ -339,7 +281,6 @@ impl<'s> Manifest<'s> {
         match self {
             Toml(s) => toml::from_str(s),
             TomlOwned(ref s) => toml::from_str(s),
-            DepList(s) => Manifest::dep_list_to_toml(s),
         }
         .map_err(|e| {
             MainError::Tag(
@@ -347,26 +288,6 @@ impl<'s> Manifest<'s> {
                 Box::new(MainError::Other(Box::new(e))),
             )
         })
-    }
-
-    fn dep_list_to_toml(s: &str) -> ::std::result::Result<toml::value::Table, toml::de::Error> {
-        let mut r = String::new();
-        r.push_str("[dependencies]\n");
-        for dep in s.trim().split(',') {
-            // If there's no version specified, add one.
-            match dep.contains('=') {
-                true => {
-                    r.push_str(dep);
-                    r.push('\n');
-                }
-                false => {
-                    r.push_str(dep);
-                    r.push_str("=\"*\"\n");
-                }
-            }
-        }
-
-        toml::from_str(&r)
     }
 }
 
@@ -376,7 +297,7 @@ Locates a manifest embedded in Rust source.
 Returns `Some((manifest, source))` if it finds a manifest, `None` otherwise.
 */
 fn find_embedded_manifest(s: &str) -> Option<(Manifest, &str)> {
-    find_short_comment_manifest(s).or_else(|| find_code_block_manifest(s))
+    find_code_block_manifest(s)
 }
 
 #[test]
@@ -430,59 +351,6 @@ fn main() {
     println!(\"Hi!\");
 }
 "),
-        None
-    );
-
-    assert_eq!(
-        fem("// cargo-deps: time=\"0.1.25\"
-fn main() {}
-"),
-        Some((
-            DepList(" time=\"0.1.25\""),
-            "// cargo-deps: time=\"0.1.25\"
-fn main() {}
-"
-        ))
-    );
-
-    assert_eq!(
-        fem("// cargo-deps: time=\"0.1.25\", libc=\"0.2.5\"
-fn main() {}
-"),
-        Some((
-            DepList(" time=\"0.1.25\", libc=\"0.2.5\""),
-            "// cargo-deps: time=\"0.1.25\", libc=\"0.2.5\"
-fn main() {}
-"
-        ))
-    );
-
-    assert_eq!(
-        fem("
-  // cargo-deps: time=\"0.1.25\"  \n\
-fn main() {}
-"),
-        Some((
-            DepList(" time=\"0.1.25\"  "),
-            "
-  // cargo-deps: time=\"0.1.25\"  \n\
-fn main() {}
-"
-        ))
-    );
-
-    assert_eq!(
-        fem("/* cargo-deps: time=\"0.1.25\" */
-fn main() {}
-"),
-        None
-    );
-
-    assert_eq!(
-        fem(r#"//! [dependencies]
-//! time = "0.1.25"
-fn main() {}
-"#),
         None
     );
 
@@ -582,22 +450,6 @@ fn main() {}
 "#
         ))
     );
-}
-
-/**
-Locates a "short comment manifest" in Rust source.
-*/
-fn find_short_comment_manifest(s: &str) -> Option<(Manifest, &str)> {
-    /*
-    This is pretty simple: the only valid syntax for this is for the first, non-blank line to contain a single-line comment whose first token is `cargo-deps:`.  That's it.
-    */
-    let re = &*RE_SHORT_MANIFEST;
-    if let Some(cap) = re.captures(s) {
-        if let Some(m) = cap.get(1) {
-            return Some((Manifest::DepList(m.as_str()), s));
-        }
-    }
-    None
 }
 
 /**
