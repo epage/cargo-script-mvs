@@ -1,4 +1,7 @@
-// cargo-deps: chrono
+//! ```cargo
+//! [dependencies]
+//! chrono="*"
+//! ```
 extern crate chrono;
 fn main() {
     println!("--output--");

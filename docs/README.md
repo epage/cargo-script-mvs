@@ -49,7 +49,7 @@ Under the hood, a Cargo project will be generated and built (with the Cargo outp
 
 As seen from the above example, using a `fn main() {}` function is not required. If not present, the script file will be wrapped in a `fn main() { ... }` block.
 
-`rust-script` will look for embedded dependency and manifest information in the script as shown by the below two equivalent `now.rs` variants:
+`rust-script` will look for embedded dependency and manifest information in the script as shown by the below `now.rs` variants:
 
 ```rust
 #!/usr/bin/env rust-script
@@ -64,26 +64,6 @@ As seen from the above example, using a `fn main() {}` function is not required.
 fn main() {
     println!("{}", time::now().rfc822z());
 }
-```
-
-```rust
-// cargo-deps: time="0.1.25"
-// You can also leave off the version number, in which case, it's assumed
-// to be "*".  Also, the `cargo-deps` comment *must* be a single-line
-// comment, and it *must* be the first thing in the file, after the
-// shebang.
-// Multiple dependencies should be separated by commas:
-// cargo-deps: time="0.1.25", libc="0.2.5"
-fn main() {
-    println!("{}", time::now().rfc822z());
-}
-```
-
-The output from running one of the above scripts may look something like:
-
-```sh
-$ rust-script now
-Wed, 28 Oct 2020 00:38:45 +0100
 ```
 
 Useful command-line arguments:
@@ -122,27 +102,7 @@ The code given is embedded into a block expression, evaluated, and printed out u
 
 ## Filters
 
-You can use `rust-script` to write a quick filter, by specifying a closure to be called for each line read from stdin, like so:
-
-```sh
-$ cat now.ers | rust-script --loop \
-    "let mut n=0; move |l| {n+=1; println!(\"{:>6}: {}\",n,l.trim_right())}"
-     1: // cargo-deps: time="0.1.25"
-     3: fn main() {
-     4:     println!("{}", time::now().rfc822z());
-     5: }
-```
-
-You can achieve a similar effect to the above by using the `--count` flag, which causes the line number to be passed as a second argument to your closure:
-
-```sh
-$ cat now.ers | rust-script --count --loop \
-    "|l,n| println!(\"{:>6}: {}\", n, l.trim_right())"
-     1: // cargo-deps: time="0.1.25"
-     2: fn main() {
-     3:     println!("{}", time::now().rfc822z());
-     4: }
-```
+TBD
 
 Note that, like with expressions, you can specify a custom template for stream filters.
 
@@ -167,7 +127,10 @@ Templates are Rust source files with two placeholders: `#{prelude}` for the auto
 For example, a minimal expression template that adds a dependency and imports some additional symbols might be:
 
 ```rust
-// cargo-deps: itertools="0.6.2"
+//! ```cargo
+//! [dependencies]
+//! itertools="0.6.2"
+//! ```
 #![allow(unused_imports)]
 #{prelude}
 use std::io::prelude::*;
