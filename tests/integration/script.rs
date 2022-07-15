@@ -1,4 +1,40 @@
 #[test]
+fn test_script_override_backtrace() {
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .env("RUST_BACKTRACE", "0")
+        .arg("tests/data/script-override-backtrace.rs")
+        .assert()
+        .failure()
+        .stderr_matches(
+            "...
+thread 'main' panicked at 'a pink elephant!', script-override-backtrace.rs:6:5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+",
+        );
+
+    fixture.close();
+}
+#[test]
+fn test_script_default_backtrace() {
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/script-default-backtrace.rs")
+        .assert()
+        .failure()
+        .stderr_matches(
+            "...
+thread 'main' panicked at 'a pink elephant!', script-default-backtrace.rs:6:5
+stack backtrace:
+   0: std::panicking::begin_panic
+...",
+        );
+
+    fixture.close();
+}
+#[test]
 fn test_script_features() {
     let fixture = crate::util::Fixture::new();
     fixture

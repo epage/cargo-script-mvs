@@ -331,6 +331,7 @@ fn main() {
     env_logger::init();
 
     let stderr = &mut std::io::stderr();
+
     match try_main() {
         Ok(0) => (),
         Ok(code) => {
@@ -435,6 +436,7 @@ fn try_main() -> MainResult<i32> {
     let exit_code = {
         let cmd_name = action.build_kind.exec_command();
         info!("running `cargo {}`", cmd_name);
+
         let run_quietly = !action.cargo_output;
         let mut cmd = action.cargo(cmd_name, &args.script_args, run_quietly)?;
 
@@ -1048,6 +1050,12 @@ fn cargo(
     run_quietly: bool,
 ) -> MainResult<Command> {
     let mut cmd = Command::new("cargo");
+
+    // Set tracing on if not set
+    if std::env::var_os("RUST_BACKTRACE").is_none() {
+        cmd.env("RUST_BACKTRACE", "1");
+        info!("setting RUST_BACKTRACE=1 for this cargo run");
+    }
 
     // Always specify a toolchain to avoid being affected by rust-version(.toml) files:
     cmd.arg(format!("+{}", toolchain_version.unwrap_or("stable")));
