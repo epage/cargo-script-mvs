@@ -866,11 +866,13 @@ fn default_manifest(input: &Input, input_id: &OsString) -> MainResult<toml::valu
 /**
 Given two Cargo manifests, merges the second (user's) *into* the first (default).
 
-Note that the "merge" operates on *top-level* tables and only adds at that level. 
+Note that the "merge" operates on *top-level* tables and only adds at that level.
+
 Mainly we only care about the [package] and [bin] sections because they are in the default manifest.
 The original comments stated "everything else is just outright replaced" this was not exactly correct.
 The "info_t.extend(from_t);" call will add new map entries and overwrite map entries with the same name.
-This gives us a sub_element merger. Everything int the default [package] is up for game. 
+This gives us a sub_element merger. Everything int the default [package] is up for game.
+
 We preserve bin however since changing this would likely break compilation.
 */
 fn merge_manifest(
@@ -878,7 +880,9 @@ fn merge_manifest(
     from_t: toml::value::Table,
 ) -> MainResult<toml::value::Table> {
     for (k, v) in from_t {
-        if k=="bin" { continue; } // Skip [bin] to prevent a user from shooting themselves in the foot
+        if k == "bin" {
+            continue;
+        } // Skip [bin] to prevent a user from shooting themselves in the foot
         match v {
             toml::Value::Table(from_t) => {
                 // Merge.
@@ -891,7 +895,7 @@ fn merge_manifest(
                             "cannot merge manifests: cannot merge \
                                 table and non-table values",
                         )?;
-                        info!("into_t --{:?}--,\n from_t --{:?}-- ",into_t, from_t);
+                        info!("into_t --{:?}--,\n from_t --{:?}-- ", into_t, from_t);
                         into_t.extend(from_t); // Possibly consider removing name from from_t
                     }
                 }
