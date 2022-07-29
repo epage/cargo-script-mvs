@@ -305,6 +305,27 @@ Some(1)
 }
 
 #[test]
+fn test_script_merge_manifest() {
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/script-merge-manifest.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+Name = TEST-script-merge-manifest
+Authors = mna king:squeeze@merge.com
+Version = 0.1.3
+Cargo basdir = unknown
+Some(1)
+",
+        );
+
+    fixture.close();
+}
+
+#[test]
 fn test_pub_fn_main() {
     let fixture = crate::util::Fixture::new();
     fixture

@@ -535,7 +535,7 @@ fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> MainResult<()> {
     let mani_str = &action.manifest;
     let script_str = &action.script;
 
-    info!("creating pkg dir...");
+    info!("creating pkg dir {} ...",pkg_path.display());
     fs::create_dir_all(pkg_path)?;
     let cleanup_dir: Defer<_, MainError> = Defer::new(|| {
         // DO NOT try deleting ANYTHING if we're not cleaning up inside our own cache.  We *DO NOT* want to risk killing user files.
