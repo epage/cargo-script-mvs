@@ -62,11 +62,11 @@ The section should return to the examples given in the previous section, and exp
 # Prior art
 [prior-art]: #prior-art
 
-cargo-script - the unmaintained project that rust-script was forked from.
-cargo-eval - maintained fork of cargo-script.
-cargo-play - local Rust playground.
-runner - tool for running Rust snippets.
-scriptisto - language-agnostic "shebang interpreter" that enables you to write scripts in compiled languages.
+  * cargo-script - the unmaintained project that rust-script was forked from.
+  * cargo-eval - maintained fork of cargo-script.
+  * cargo-play - local Rust playground.
+  * runner - tool for running Rust snippets.
+  * scriptisto - language-agnostic "shebang interpreter" that enables you to write scripts in compiled languages.
 
 Next we will generically discuss this prior art, both the good and the bad, in relation to this proposal.
 
