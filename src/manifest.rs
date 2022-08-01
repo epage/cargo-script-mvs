@@ -49,9 +49,9 @@ pub fn split_input(input: &Input, input_id: &OsString) -> MainResult<(String, St
     }
 
     let template_buf;
-    let (part_mani, source, template) = match *input {
+    let (part_mani, source, template) = match input {
         Input::File(_, _, content, _) => {
-            let content = strip_shebang(content);
+            let content = strip_shebang(content.as_str());
             let (manifest, source) =
                 find_embedded_manifest(content).unwrap_or((Manifest::Toml(""), content));
 
@@ -63,7 +63,7 @@ pub fn split_input(input: &Input, input_id: &OsString) -> MainResult<(String, St
             (manifest, source, templates::get_template("file")?)
         }
         Input::Expr(content, template) => {
-            template_buf = templates::get_template(template.unwrap_or("expr"))?;
+            template_buf = templates::get_template(template.as_deref().unwrap_or("expr"))?;
             let (manifest, template_src) = find_embedded_manifest(&template_buf)
                 .unwrap_or((Manifest::Toml(""), &template_buf));
             (manifest, content.to_string(), template_src.into())
@@ -105,9 +105,10 @@ fn test_split_input() {
         };
     }
 
-    let dummy_path: ::std::path::PathBuf = "p".into();
-    let dummy_path = &dummy_path;
-    let f = |c| Input::File("n", dummy_path, c, 0);
+    let f = |c: &str| {
+        let dummy_path: std::path::PathBuf = "p".into();
+        Input::File("n".into(), dummy_path, c.into(), 0)
+    };
 
     macro_rules! r {
         ($m:expr, $r:expr) => {

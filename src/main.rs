@@ -32,13 +32,13 @@ use sha1::{Digest, Sha1};
 
 #[derive(Debug)]
 struct Args {
-    script: Option<String>,
-    script_args: Vec<String>,
-    features: Option<String>,
+    script: Option<OsString>,
+    script_args: Vec<OsString>,
+    features: Vec<String>,
 
     expr: bool,
 
-    pkg_path: Option<String>,
+    pkg_path: Option<PathBuf>,
     cargo_output: bool,
     clear_cache: bool,
     debug: bool,
@@ -104,8 +104,8 @@ fn parse_args() -> MainResult<Args> {
         .trailing_var_arg(true)
         .arg(
             Arg::new("script")
-                .index(1)
                 .help("Script file or expression to execute.")
+                .value_parser(clap::value_parser!(OsString))
                 .required_unless_present_any(if cfg!(windows) {
                     vec![
                         "clear-cache",
@@ -132,7 +132,7 @@ fn parse_args() -> MainResult<Args> {
                 .help("Execute <script> as a literal expression and display the result.")
                 .long("expr")
                 .short('e')
-                .takes_value(false)
+                .action(clap::ArgAction::SetTrue)
                 .requires("script"),
         )
         /*
@@ -143,18 +143,21 @@ fn parse_args() -> MainResult<Args> {
                 .help("Show output from cargo when building.")
                 .short('o')
                 .long("cargo-output")
+                .action(clap::ArgAction::SetTrue)
                 .requires("script"),
         )
         .arg(
             Arg::new("debug")
                 .help("Build a debug executable, not an optimised one.")
-                .long("debug"),
+                .long("debug")
+                .action(clap::ArgAction::SetTrue),
         )
         .arg(
             Arg::new("features")
                 .help("Cargo features to pass when building and running.")
+                .short('F')
                 .long("features")
-                .takes_value(true),
+                .action(clap::ArgAction::Append),
         )
         /*
         Options that change how rust-script itself behaves, and don't alter what the script will do.
@@ -162,19 +165,22 @@ fn parse_args() -> MainResult<Args> {
         .arg(
             Arg::new("clear-cache")
                 .help("Clears out the script cache.")
-                .long("clear-cache"),
+                .long("clear-cache")
+                .action(clap::ArgAction::SetTrue),
         )
         .arg(
             Arg::new("force")
                 .help("Force the script to be rebuilt.")
                 .long("force")
+                .action(clap::ArgAction::SetTrue)
                 .requires("script"),
         )
         .arg(
             Arg::new("pkg_path")
                 .help("Specify where to place the generated Cargo package.")
                 .long("pkg-path")
-                .takes_value(true)
+                .action(clap::ArgAction::Set)
+                .value_parser(clap::value_parser!(PathBuf))
                 .requires("script")
                 .conflicts_with_all(&["clear-cache", "force"]),
         )
@@ -182,12 +188,14 @@ fn parse_args() -> MainResult<Args> {
             Arg::new("test")
                 .help("Compile and run tests.")
                 .long("test")
+                .action(clap::ArgAction::SetTrue)
                 .conflicts_with_all(&["bench", "debug", "force"]),
         )
         .arg(
             Arg::new("bench")
                 .help("Compile and run benchmarks. Requires a nightly toolchain.")
                 .long("bench")
+                .action(clap::ArgAction::SetTrue)
                 .conflicts_with_all(&["test", "debug", "force"]),
         )
         .arg(
@@ -195,7 +203,7 @@ fn parse_args() -> MainResult<Args> {
                 .help("Specify a template to use for expression scripts.")
                 .long("template")
                 .short('t')
-                .takes_value(true)
+                .action(clap::ArgAction::Set)
                 .requires("expr"),
         )
         .arg(
@@ -204,7 +212,7 @@ fn parse_args() -> MainResult<Args> {
                 .long("toolchain-version")
                 // "channel"
                 .short('c')
-                .takes_value(true)
+                .action(clap::ArgAction::Set)
                 // FIXME: remove if benchmarking is stabilized
                 .conflicts_with("bench"),
         )
@@ -212,7 +220,7 @@ fn parse_args() -> MainResult<Args> {
             Arg::new("list-templates")
                 .help("List the available templates.")
                 .long("list-templates")
-                .takes_value(false),
+                .action(clap::ArgAction::SetTrue),
         )
         .arg(
             Arg::new("unstable_flags")
@@ -220,7 +228,6 @@ fn parse_args() -> MainResult<Args> {
                 .short('Z')
                 .value_name("FLAG")
                 .global(true)
-                .takes_value(true)
                 .value_parser(clap::value_parser!(UnstableFlags))
                 .action(clap::ArgAction::Append),
         );
@@ -230,12 +237,14 @@ fn parse_args() -> MainResult<Args> {
         .arg(
             Arg::new("install-file-association")
                 .help("Install a file association so that rust-script executes .ers files.")
-                .long("install-file-association"),
+                .long("install-file-association")
+                .action(clap::ArgAction::SetTrue),
         )
         .arg(
             Arg::new("uninstall-file-association")
                 .help("Uninstall the file association that makes rust-script execute .ers files.")
-                .long("uninstall-file-association"),
+                .long("uninstall-file-association")
+                .action(clap::ArgAction::SetTrue),
         )
         .group(
             clap::ArgGroup::new("file-association")
@@ -250,22 +259,23 @@ fn parse_args() -> MainResult<Args> {
         .copied()
         .collect::<Vec<_>>();
 
-    let script_and_args: Option<Vec<&str>> = m.values_of("script").map(|o| o.collect());
+    let script_and_args = m
+        .get_many::<OsString>("script")
+        .map(|o| o.map(|s| s.to_owned()));
     let script;
-    let script_args: Vec<String>;
-    if let Some(script_and_args) = script_and_args {
-        script = script_and_args.get(0).map(|s| s.to_string());
-        script_args = if script_and_args.len() > 1 {
-            script_and_args[1..].iter().map(|s| s.to_string()).collect()
-        } else {
-            Vec::new()
-        };
+    let script_args: Vec<OsString>;
+    if let Some(mut script_and_args) = script_and_args {
+        script = script_and_args.next();
+        script_args = script_and_args.collect();
     } else {
         script = None;
         script_args = Vec::new();
     }
 
-    let build_kind = BuildKind::from_flags(m.is_present("test"), m.is_present("bench"));
+    let build_kind = BuildKind::from_flags(
+        *m.get_one::<bool>("test").expect("defaulted"),
+        *m.get_one::<bool>("bench").expect("defaulted"),
+    );
     match build_kind {
         BuildKind::Normal => {}
         BuildKind::Test => {
@@ -286,7 +296,7 @@ fn parse_args() -> MainResult<Args> {
         }
     }
 
-    let toolchain_version = m.value_of("toolchain-version").map(Into::into);
+    let toolchain_version = m.get_one::<String>("toolchain-version").map(Into::into);
     if let Some(toolchain_version) = &toolchain_version {
         if !unstable_flags.contains(&UnstableFlags::ToolchainVersion) {
             return Err(
@@ -296,7 +306,7 @@ fn parse_args() -> MainResult<Args> {
         }
     }
 
-    let expr = m.is_present("expr");
+    let expr = *m.get_one::<bool>("expr").expect("defaulted");
     if expr && !unstable_flags.contains(&UnstableFlags::Expr) {
         return Err(
             "`--expr` is unstable and requires `-Z expr` (epage/cargo-script-mvs#72).".into(),
@@ -306,23 +316,31 @@ fn parse_args() -> MainResult<Args> {
     Ok(Args {
         script,
         script_args,
-        features: m.value_of("features").map(Into::into),
+        features: m
+            .get_many::<String>("features")
+            .unwrap_or_default()
+            .map(|s| s.to_owned())
+            .collect(),
 
         expr,
 
-        pkg_path: m.value_of("pkg_path").map(Into::into),
-        cargo_output: m.is_present("cargo-output"),
-        clear_cache: m.is_present("clear-cache"),
-        debug: m.is_present("debug"),
-        force: m.is_present("force"),
+        pkg_path: m.get_one::<PathBuf>("pkg_path").map(Into::into),
+        cargo_output: *m.get_one::<bool>("cargo-output").expect("defaulted"),
+        clear_cache: *m.get_one::<bool>("clear-cache").expect("defaulted"),
+        debug: *m.get_one::<bool>("debug").expect("defaulted"),
+        force: *m.get_one::<bool>("force").expect("defaulted"),
         build_kind,
-        template: m.value_of("template").map(Into::into),
-        list_templates: m.is_present("list-templates"),
+        template: m.get_one::<String>("template").map(Into::into),
+        list_templates: *m.get_one::<bool>("list-templates").expect("defaulted"),
         toolchain_version,
         #[cfg(windows)]
-        install_file_association: m.is_present("install-file-association"),
+        install_file_association: *m
+            .get_one::<bool>("install-file-association")
+            .expect("defaulted"),
         #[cfg(windows)]
-        uninstall_file_association: m.is_present("uninstall-file-association"),
+        uninstall_file_association: *m
+            .get_one::<bool>("uninstall-file-association")
+            .expect("defaulted"),
         unstable_flags,
     })
 }
@@ -376,12 +394,13 @@ fn try_main() -> MainResult<i32> {
     // These three are just storage for the borrows we'll actually use.
     let script_name: String;
     let script_path: PathBuf;
-    let content: String;
 
     let input = match (args.script.clone().unwrap(), args.expr) {
         (script, false) => {
-            let (path, mut file) =
-                find_script(&script).ok_or(format!("could not find script: {}", script))?;
+            let (path, mut file) = find_script(&script).ok_or(format!(
+                "could not find script: {}",
+                script.to_string_lossy()
+            ))?;
 
             script_name = path
                 .file_stem()
@@ -394,13 +413,15 @@ fn try_main() -> MainResult<i32> {
             let mtime = platform::file_last_modified(&file);
 
             script_path = std::env::current_dir()?.join(path);
-            content = body;
 
-            Input::File(&script_name, &script_path, &content, mtime)
+            Input::File(script_name, script_path, body, mtime)
         }
         (expr, true) => {
-            content = expr;
-            Input::Expr(&content, args.template.as_deref())
+            let expr = expr
+                .to_str()
+                .ok_or_else(|| format!("expr must be UTF-8, got {}", expr.to_string_lossy()))?
+                .to_owned();
+            Input::Expr(expr, args.template.clone())
         }
     };
     info!("input: {:?}", input);
@@ -540,7 +561,7 @@ fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> MainResult<()> {
     let cleanup_dir: Defer<_, MainError> = Defer::new(|| {
         // DO NOT try deleting ANYTHING if we're not cleaning up inside our own cache.  We *DO NOT* want to risk killing user files.
         if action.using_cache {
-            info!("cleaning up cache directory {:?}", pkg_path);
+            info!("cleaning up cache directory {}", pkg_path.display());
             if ALLOW_AUTO_REMOVE {
                 fs::remove_dir_all(pkg_path)?;
             } else {
@@ -652,7 +673,7 @@ impl InputAction {
         self.pkg_path.join("Cargo.toml")
     }
 
-    fn cargo(&self, cmd: &str, script_args: &[String], run_quietly: bool) -> MainResult<Command> {
+    fn cargo(&self, cmd: &str, script_args: &[OsString], run_quietly: bool) -> MainResult<Command> {
         cargo(
             cmd,
             &*self.manifest_path().to_string_lossy(),
@@ -710,8 +731,8 @@ fn decide_action_for(input: &Input, args: &Args) -> MainResult<InputAction> {
             let cache_path = platform::generated_projects_cache_path().unwrap();
             (cache_path.join(&input_id), true)
         });
-    info!("pkg_path: {:?}", pkg_path);
-    info!("using_cache: {:?}", using_cache);
+    info!("pkg_path: {}", pkg_path.display());
+    info!("using_cache: {}", using_cache);
 
     let (mani_str, script_str) = manifest::split_input(input, &input_id)?;
 
@@ -723,18 +744,25 @@ fn decide_action_for(input: &Input, args: &Args) -> MainResult<InputAction> {
     };
 
     let input_meta = {
-        let (path, mtime, template) = match *input {
-            Input::File(_, path, _, mtime) => {
-                (Some(path.to_string_lossy().into_owned()), Some(mtime), None)
-            }
-            Input::Expr(_, template) => (None, None, template),
+        let (path, mtime, template) = match input {
+            Input::File(_, path, _, mtime) => (
+                Some(path.to_string_lossy().into_owned()),
+                Some(*mtime),
+                None,
+            ),
+            Input::Expr(_, template) => (None, None, template.clone()),
+        };
+        let features = if args.features.is_empty() {
+            None
+        } else {
+            Some(args.features.join(" "))
         };
         PackageMetadata {
             path,
             modified: mtime,
-            template: template.map(Into::into),
+            template,
             debug,
-            features: args.features.clone(),
+            features,
             manifest_hash: hash_str(&mani_str),
             script_hash: hash_str(&script_str),
         }
@@ -879,29 +907,29 @@ where
 Represents an input source for a script.
 */
 #[derive(Clone, Debug)]
-pub enum Input<'a> {
+pub enum Input {
     /**
     The input is a script file.
 
     The tuple members are: the name, absolute path, script contents, last modified time.
     */
-    File(&'a str, &'a Path, &'a str, u128),
+    File(String, PathBuf, String, u128),
 
     /**
     The input is an expression.
 
     The tuple member is: the script contents, and the template (if any).
     */
-    Expr(&'a str, Option<&'a str>),
+    Expr(String, Option<String>),
 }
 
-impl<'a> Input<'a> {
+impl Input {
     /**
     Return the path to the script, if it has one.
     */
-    pub const fn path(&self) -> Option<&Path> {
-        match *self {
-            Self::File(_, path, _, _) => Some(path),
+    pub fn path(&self) -> Option<&Path> {
+        match self {
+            Self::File(_, path, _, _) => Some(path.as_path()),
             Self::Expr(..) => None,
         }
     }
@@ -911,8 +939,8 @@ impl<'a> Input<'a> {
 
     Currently, nothing is done to ensure this, other than hoping *really hard* that we don't get fed some excessively bizzare input filename.
     */
-    pub const fn safe_name(&self) -> &str {
-        match *self {
+    pub fn safe_name(&self) -> &str {
+        match self {
             Self::File(name, _, _, _) => name,
             Self::Expr(..) => "expr",
         }
@@ -951,7 +979,7 @@ impl<'a> Input<'a> {
     Base directory for resolving relative paths.
     */
     pub fn base_path(&self) -> PathBuf {
-        match *self {
+        match self {
             Self::File(_, path, _, _) => path
                 .parent()
                 .expect("couldn't get parent directory for file input base path")
@@ -966,7 +994,7 @@ impl<'a> Input<'a> {
     // This is used as the name of the cache folder into which the Cargo package
     // will be generated.
     pub fn compute_id(&self) -> OsString {
-        match *self {
+        match self {
             Self::File(_, path, _, _) => {
                 let mut hasher = Sha1::new();
 
@@ -983,7 +1011,7 @@ impl<'a> Input<'a> {
                 let mut hasher = Sha1::new();
 
                 hasher.update("template:");
-                hasher.update(template.unwrap_or(""));
+                hasher.update(template.as_deref().unwrap_or(""));
                 hasher.update(";");
 
                 hasher.update(content);
@@ -1046,7 +1074,7 @@ fn cargo(
     manifest: &str,
     toolchain_version: Option<&str>,
     meta: &PackageMetadata,
-    script_args: &[String],
+    script_args: &[OsString],
     run_quietly: bool,
 ) -> MainResult<Command> {
     let mut cmd = Command::new("cargo");
@@ -1095,8 +1123,18 @@ fn cargo(
 
 #[test]
 fn test_package_name() {
-    let input = Input::File("Script", Path::new("path"), "script", 0);
+    let input = Input::File(
+        "Script".into(),
+        Path::new("path").into(),
+        "script".into(),
+        0,
+    );
     assert_eq!("script", input.package_name());
-    let input = Input::File("1Script", Path::new("path"), "script", 0);
+    let input = Input::File(
+        "1Script".into(),
+        Path::new("path").into(),
+        "script".into(),
+        0,
+    );
     assert_eq!("_1script", input.package_name());
 }
