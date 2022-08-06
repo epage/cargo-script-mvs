@@ -228,7 +228,7 @@ Returns a slice of the input string with the leading shebang, if there is one, o
 */
 fn strip_shebang(s: &str) -> &str {
     match RE_SHEBANG.find(s) {
-        Some(m) => &s[m.end()..],
+        Some(m) => &s[m.end() - 1..], // subtract 1 to include \n or \r\n that would otherwise have been stripped
         None => s,
     }
 }
@@ -244,7 +244,7 @@ and the rest
         "
         ),
         "\
-and the rest
+\nand the rest
 \
         "
     );
