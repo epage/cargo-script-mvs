@@ -1,4 +1,66 @@
 #[test]
+fn test_script_line_numbering_preserved() {
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/script_line_numbering_preserved.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "line: 12
+",
+        );
+
+    fixture.close();
+}
+
+#[test]
+fn test_script_line_numbering_preserved_no_main() {
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/script_line_numbering_preserved_no_main.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "line: 3
+",
+        );
+
+    fixture.close();
+}
+#[test]
+fn test_script_line_numbering_preserved_no_shebang() {
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/script_line_numbering_preserved_no_shebang.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "line: 11
+",
+        );
+
+    fixture.close();
+}
+
+#[test]
+fn test_script_line_numbering_preserved_no_main_no_shebang() {
+    let fixture = crate::util::Fixture::new();
+    fixture
+        .cmd()
+        .arg("tests/data/script_line_numbering_preserved_no_main_no_shebang.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "line: 2
+",
+        );
+
+    fixture.close();
+}
+#[test]
 fn test_script_override_backtrace() {
     let fixture = crate::util::Fixture::new();
     fixture
