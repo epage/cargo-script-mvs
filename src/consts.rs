@@ -144,6 +144,15 @@ version = "0.1.0"
 authors = ["Anonymous"]
 edition = "2018"
 
+[package.ers]
+format_version = "0.0.2"
+template_data = "off"
+
+[package.ers.compile_opt]
+gdb_enable = "false"
+debug_level = "info"
+optimizer = "disable"
+
 [[bin]]
 name = "#{bin_name}"
 path = "#{file}.rs"

@@ -317,7 +317,7 @@ fn test_script_merge_manifest() {
 Name = TEST-script-merge-manifest
 Authors = mna king:squeeze@merge.com
 Version = 0.1.3
-Cargo basdir = unknown
+Cargo basedir = unknown
 Some(1)
 ",
         );

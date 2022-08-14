@@ -84,7 +84,9 @@ pub fn split_input(input: &Input, input_id: &OsString) -> MainResult<(String, St
 
     // It's-a mergin' time!
     let def_mani = default_manifest(input, input_id)?;
+    info!("NEW default manifest: {:?}", def_mani);
     let mani = merge_manifest(def_mani, part_mani)?;
+    //let mani = merge_manifest(part_mani, def_mani)?;
 
     // Fix up relative paths.
     let mani = fix_manifest_paths(mani, &input.base_path())?;
@@ -127,6 +129,15 @@ authors = ["Anonymous"]
 edition = "2018"
 name = "n"
 version = "0.1.0"
+
+[package.ers]
+format_version = "0.0.2"
+template_data = "off"
+
+[package.ers.compile_opt]
+debug_level = "info"
+gdb_enable = "false"
+optimizer = "disable"
 "#,
             r#"fn main() {}"#
         )
@@ -148,6 +159,15 @@ authors = ["Anonymous"]
 edition = "2018"
 name = "n"
 version = "0.1.0"
+
+[package.ers]
+format_version = "0.0.2"
+template_data = "off"
+
+[package.ers.compile_opt]
+debug_level = "info"
+gdb_enable = "false"
+optimizer = "disable"
 "#,
             r#"
 ---
@@ -172,6 +192,15 @@ authors = ["Anonymous"]
 edition = "2018"
 name = "n"
 version = "0.1.0"
+
+[package.ers]
+format_version = "0.0.2"
+template_data = "off"
+
+[package.ers.compile_opt]
+debug_level = "info"
+gdb_enable = "false"
+optimizer = "disable"
 "#,
             r#"[dependencies]
 time="0.1.25"
@@ -206,6 +235,15 @@ authors = ["Anonymous"]
 edition = "2018"
 name = "n"
 version = "0.1.0"
+
+[package.ers]
+format_version = "0.0.2"
+template_data = "off"
+
+[package.ers.compile_opt]
+debug_level = "info"
+gdb_enable = "false"
+optimizer = "disable"
 "#,
             r#"
 /*!
@@ -866,47 +904,44 @@ fn default_manifest(input: &Input, input_id: &OsString) -> MainResult<toml::valu
 /**
 Given two Cargo manifests, merges the second (user's) *into* the first (default).
 
-Note that the "merge" operates on *top-level* tables and only adds at that level.
-
-Mainly we only care about the \[package\] and \[bin\] sections because they are in the default manifest.
-The original comments stated "everything else is just outright replaced" this was not exactly correct.
+Mainly we care about the \[package\] and \[bin\] sections because they are in the default manifest.
 The "info_t.extend(from_t);" call will add new map entries and overwrite map entries with the same name.
-This gives us a sub_element merger. Everything int the default \[package\] is up for game.
+Together with the recursive call this gives us a sub_element merger.
 
-We preserve bin however since changing this would likely break compilation.
+We preserve sections like \[bin\] however since changing this would likely break compilation.
 */
 fn merge_manifest(
     mut into_t: toml::value::Table,
     from_t: toml::value::Table,
 ) -> MainResult<toml::value::Table> {
     for (k, v) in from_t {
+        // Skip tables like [bin] to prevent a user from shooting themselves in the foot
         if k == "bin" {
+            error!("inline manifest error: cannot overwrite table [{}].", k);
             continue;
-        } // Skip [bin] to prevent a user from shooting themselves in the foot
+        }
+        let mani_merge: toml::value::Table;
         match v {
-            toml::Value::Table(from_t) => {
-                // Merge.
-                match into_t.entry(k) {
-                    toml::map::Entry::Vacant(e) => {
-                        e.insert(toml::Value::Table(from_t));
-                    }
-                    toml::map::Entry::Occupied(e) => {
-                        let into_t = as_table_mut(e.into_mut()).ok_or(
-                            "cannot merge manifests: cannot merge \
-                                table and non-table values",
-                        )?;
-                        info!("into_t --{:?}--,\n from_t --{:?}-- ", into_t, from_t);
-                        into_t.extend(from_t); // Possibly consider removing name from from_t
-                    }
+            toml::Value::Table(from_t) => match into_t.entry(k.clone()) {
+                toml::map::Entry::Vacant(e) => {
+                    e.insert(toml::Value::Table(from_t));
                 }
-            }
+                toml::map::Entry::Occupied(e) => {
+                    let into_t = as_table_mut(e.into_mut()).ok_or(
+                        "cannot merge manifests: cannot merge \
+                                table and non-table values",
+                    )?;
+                    mani_merge = merge_manifest(into_t.clone(), from_t.clone())?;
+                    into_t.extend(mani_merge);
+                    info!("AFTER extending into_t:  - {:?}", into_t);
+                }
+            },
             v => {
                 // Just replace.
                 into_t.insert(k, v);
             }
         }
     }
-
     return Ok(into_t);
 
     fn as_table_mut(t: &mut toml::Value) -> Option<&mut toml::value::Table> {

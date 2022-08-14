@@ -5,6 +5,14 @@
 //! name = "TEST-script-merge-manifest"
 //! version = "0.1.3"
 //! authors = ["mna king", "squeeze@merge.com"]
+//! [package.ers]
+//! format_version = "0.0.2"
+//! template_data = "off"
+//! rust-ers-log = "None"
+//! [package.ers.compile_opt]
+//! gdb_enable = "false"
+//! debug_level = "info"
+//! optimizer = "disable"
 //! [bin]
 //! name="xyz"
 //! path="pdq.rs"
@@ -24,7 +32,7 @@ async fn main() {
     println!("Name = {}", rsname);
     println!("Authors = {}", authors);
     println!("Version = {}", version);
-    println!("Cargo basdir = {}", cargo_basedir);
+    println!("Cargo basedir = {}", cargo_basedir);
 
     println!("{:?}", true.as_some(1));
 }
