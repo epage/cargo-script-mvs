@@ -142,6 +142,7 @@ fn parse_args() -> Args {
                 .long("count")
                 .requires("loop")
             )
+            // Set the default debug variable to false
             .arg(Arg::new("release")
                 .help("Build a release executable, an optimised one.")
                 .short('r')
