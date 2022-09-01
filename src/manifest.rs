@@ -26,12 +26,10 @@ static RE_SHEBANG: once_cell::sync::Lazy<Regex> =
     once_cell::sync::Lazy::new(|| Regex::new(r"^#![^\[].*?(\r\n|\n)").unwrap());
 static RE_CRATE_COMMENT: once_cell::sync::Lazy<Regex> = once_cell::sync::Lazy::new(|| {
     Regex::new(
-            r"(?x)
-                # We need to find the first `/*!` or `//!` that *isn't* preceded by something that would make it apply to anything other than the crate itself.  Because we can't do this accurately, we'll just require that the doc comment is the *first* thing in the file (after the optional shebang, which should already have been stripped).
-                ^\s*
-                (/\*!|//(!|/))
-            "
-        ).unwrap()
+        // We need to find the first `/*!` or `//!` that *isn't* preceded by something that would make it apply to anything other than the crate itself.  Because we can't do this accurately, we'll just require that the doc comment is the *first* thing in the file (after the optional shebang).
+        r"(?x)(^\s*|^\#![^\[].*?(\r\n|\n))(/\*!|//(!|/))",
+    )
+    .unwrap()
 });
 
 /**
@@ -49,21 +47,23 @@ pub fn split_input(input: &Input, input_id: &OsString) -> MainResult<(String, St
     }
 
     let template_buf;
-    let (part_mani, source, template) = match *input {
+    let (part_mani, source, template) = match input {
         Input::File(_, _, content, _) => {
-            let content = strip_shebang(content);
             let (manifest, source) =
                 find_embedded_manifest(content).unwrap_or((Manifest::Toml(""), content));
 
             let source = if source.lines().any(contains_main_method) {
                 source.to_string()
             } else {
-                format!("fn main() -> Result<(), Box<dyn std::error::Error+Sync+Send>> {{\n    {{\n    {}    }}\n    Ok(())\n}}", source)
+                let (content, found_shebang) = strip_shebang(content.as_str());
+                // use a newline separator when a shebang is found, and a tab when no shebang is found to preserve original line numbering
+                let separator = if found_shebang { "\n" } else { "\t" };
+                format!("fn main() -> Result<(), Box<dyn std::error::Error+Sync+Send>> {{\t{{{}    {}    }}\n    Ok(())\n}}",separator, content)
             };
             (manifest, source, templates::get_template("file")?)
         }
         Input::Expr(content, template) => {
-            template_buf = templates::get_template(template.unwrap_or("expr"))?;
+            template_buf = templates::get_template(template.as_deref().unwrap_or("expr"))?;
             let (manifest, template_src) = find_embedded_manifest(&template_buf)
                 .unwrap_or((Manifest::Toml(""), &template_buf));
             (manifest, content.to_string(), template_src.into())
@@ -107,9 +107,10 @@ fn test_split_input() {
         };
     }
 
-    let dummy_path: ::std::path::PathBuf = "p".into();
-    let dummy_path = &dummy_path;
-    let f = |c| Input::File("n", dummy_path, c, 0);
+    let f = |c: &str| {
+        let dummy_path: std::path::PathBuf = "p".into();
+        Input::File("n".into(), dummy_path, c.into(), 0)
+    };
 
     macro_rules! r {
         ($m:expr, $r:expr) => {
@@ -125,7 +126,6 @@ name = "n_input_id"
 path = "n.rs"
 
 [package]
-authors = ["Anonymous"]
 edition = "2018"
 name = "n"
 version = "0.1.0"
@@ -155,7 +155,6 @@ name = "n_input_id"
 path = "n.rs"
 
 [package]
-authors = ["Anonymous"]
 edition = "2018"
 name = "n"
 version = "0.1.0"
@@ -188,7 +187,6 @@ name = "n_input_id"
 path = "n.rs"
 
 [package]
-authors = ["Anonymous"]
 edition = "2018"
 name = "n"
 version = "0.1.0"
@@ -231,7 +229,6 @@ path = "n.rs"
 time = "0.1.25"
 
 [package]
-authors = ["Anonymous"]
 edition = "2018"
 name = "n"
 version = "0.1.0"
@@ -263,10 +260,10 @@ fn main() {}
 /**
 Returns a slice of the input string with the leading shebang, if there is one, omitted.
 */
-fn strip_shebang(s: &str) -> &str {
+fn strip_shebang(s: &str) -> (&str, bool) {
     match RE_SHEBANG.find(s) {
-        Some(m) => &s[m.end()..],
-        None => s,
+        Some(m) => (&s[m.end()..], true),
+        None => (s, false),
     }
 }
 
@@ -279,7 +276,8 @@ fn test_strip_shebang() {
 and the rest
 \
         "
-        ),
+        )
+        .0,
         "\
 and the rest
 \
@@ -292,7 +290,8 @@ and the rest
 and the rest
 \
         "
-        ),
+        )
+        .0,
         "\
 #![thingy]
 and the rest
@@ -504,7 +503,7 @@ fn find_code_block_manifest(s: &str) -> Option<(Manifest, &str)> {
     Then, we need to take the contents of this doc comment and feed it to a Markdown parser.  We are looking for *the first* fenced code block with a language token of `cargo`.  This is extracted and pasted back together into the manifest.
     */
     let start = match RE_CRATE_COMMENT.captures(s) {
-        Some(cap) => match cap.get(1) {
+        Some(cap) => match cap.get(3) {
             Some(m) => m.start(),
             None => return None,
         },
