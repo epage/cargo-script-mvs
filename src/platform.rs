@@ -31,17 +31,19 @@ pub fn current_time() -> u128 {
 
 #[cfg(not(test))]
 pub fn cache_dir() -> Result<PathBuf, MainError> {
-    dirs_next::cache_dir()
-        .map(|dir| dir.join(consts::PROGRAM_NAME))
-        .ok_or_else(|| ("Cannot get cache directory").into())
+    if let Some(path) = std::env::var_os("RUST_SCRIPT_CACHE_PATH") {
+        Ok(path.into())
+    } else {
+        dirs_next::cache_dir()
+            .map(|dir| dir.join(consts::PROGRAM_NAME))
+            .ok_or_else(|| ("Cannot get cache directory").into())
+    }
 }
 
 #[cfg(test)]
 pub fn cache_dir() -> Result<PathBuf, MainError> {
-    use lazy_static::lazy_static;
-    lazy_static! {
-        static ref TEMP_DIR: tempfile::TempDir = tempfile::TempDir::new().unwrap();
-    }
+    static TEMP_DIR: once_cell::sync::Lazy<tempfile::TempDir> =
+        once_cell::sync::Lazy::new(|| tempfile::TempDir::new().unwrap());
     Ok(TEMP_DIR.path().to_path_buf())
 }
 
@@ -55,7 +57,7 @@ pub fn binary_cache_path() -> Result<PathBuf, MainError> {
 
 pub fn templates_dir() -> Result<PathBuf, MainError> {
     if cfg!(debug_assertions) {
-        if let Ok(path) = std::env::var("RUST_SCRIPT_DEBUG_TEMPLATE_PATH") {
+        if let Some(path) = std::env::var_os("RUST_SCRIPT_DEBUG_TEMPLATE_PATH") {
             return Ok(path.into());
         }
     }

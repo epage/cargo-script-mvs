@@ -11,40 +11,33 @@ use crate::consts;
 use crate::error::{MainError, MainResult};
 use crate::templates;
 use crate::Input;
-use lazy_static::lazy_static;
 use log::{error, info};
 use std::ffi::OsString;
 
-lazy_static! {
-    static ref RE_SHORT_MANIFEST: Regex =
-        Regex::new(r"^(?i)\s*//\s*cargo-deps\s*:(.*?)(\r\n|\n)").unwrap();
-    static ref RE_MARGIN: Regex = Regex::new(r"^\s*\*( |$)").unwrap();
-    static ref RE_SPACE: Regex = Regex::new(r"^(\s+)").unwrap();
-    static ref RE_NESTING: Regex = Regex::new(r"/\*|\*/").unwrap();
-    static ref RE_COMMENT: Regex = Regex::new(r"^\s*//(!|/)").unwrap();
-    static ref RE_SHEBANG: Regex = Regex::new(r"^#![^\[].*?(\r\n|\n)").unwrap();
-    static ref RE_CRATE_COMMENT: Regex = {
-        Regex::new(
-            r"(?x)
-                # We need to find the first `/*!` or `//!` that *isn't* preceded by something that would make it apply to anything other than the crate itself.  Because we can't do this accurately, we'll just require that the doc comment is the *first* thing in the file (after the optional shebang, which should already have been stripped).
-                ^\s*
-                (/\*!|//(!|/))
-            "
-        ).unwrap()
-    };
-}
+static RE_MARGIN: once_cell::sync::Lazy<Regex> =
+    once_cell::sync::Lazy::new(|| Regex::new(r"^\s*\*( |$)").unwrap());
+static RE_SPACE: once_cell::sync::Lazy<Regex> =
+    once_cell::sync::Lazy::new(|| Regex::new(r"^(\s+)").unwrap());
+static RE_NESTING: once_cell::sync::Lazy<Regex> =
+    once_cell::sync::Lazy::new(|| Regex::new(r"/\*|\*/").unwrap());
+static RE_COMMENT: once_cell::sync::Lazy<Regex> =
+    once_cell::sync::Lazy::new(|| Regex::new(r"^\s*//(!|/)").unwrap());
+static RE_SHEBANG: once_cell::sync::Lazy<Regex> =
+    once_cell::sync::Lazy::new(|| Regex::new(r"^#![^\[].*?(\r\n|\n)").unwrap());
+static RE_CRATE_COMMENT: once_cell::sync::Lazy<Regex> = once_cell::sync::Lazy::new(|| {
+    Regex::new(
+        // We need to find the first `/*!` or `//!` that *isn't* preceded by something that would make it apply to anything other than the crate itself.  Because we can't do this accurately, we'll just require that the doc comment is the *first* thing in the file (after the optional shebang).
+        r"(?x)(^\s*|^\#![^\[].*?(\r\n|\n))(/\*!|//(!|/))",
+    )
+    .unwrap()
+});
 
 /**
 Splits input into a complete Cargo manifest and unadultered Rust source.
 
 Unless we have prelude items to inject, in which case it will be *slightly* adulterated.
 */
-pub fn split_input(
-    input: &Input,
-    deps: &[(String, String)],
-    prelude_items: &[String],
-    input_id: &OsString,
-) -> MainResult<(String, String)> {
+pub fn split_input(input: &Input, input_id: &OsString) -> MainResult<(String, String)> {
     fn contains_main_method(line: &str) -> bool {
         let line = line.trim_start();
         line.starts_with("fn main(")
@@ -54,51 +47,32 @@ pub fn split_input(
     }
 
     let template_buf;
-    let (part_mani, source, template, sub_prelude) = match *input {
+    let (part_mani, source, template) = match input {
         Input::File(_, _, content, _) => {
-            assert_eq!(prelude_items.len(), 0);
-            let content = strip_shebang(content);
             let (manifest, source) =
                 find_embedded_manifest(content).unwrap_or((Manifest::Toml(""), content));
 
             let source = if source.lines().any(contains_main_method) {
                 source.to_string()
             } else {
-                format!("fn main() -> Result<(), Box<dyn std::error::Error+Sync+Send>> {{\n    {{\n    {}    }}\n    Ok(())\n}}", source)
+                let (content, found_shebang) = strip_shebang(content.as_str());
+                // use a newline separator when a shebang is found, and a tab when no shebang is found to preserve original line numbering
+                let separator = if found_shebang { "\n" } else { "\t" };
+                format!("fn main() -> Result<(), Box<dyn std::error::Error+Sync+Send>> {{\t{{{}    {}    }}\n    Ok(())\n}}",separator, content)
             };
-            (manifest, source, templates::get_template("file")?, false)
+            (manifest, source, templates::get_template("file")?)
         }
         Input::Expr(content, template) => {
-            template_buf = templates::get_template(template.unwrap_or("expr"))?;
+            template_buf = templates::get_template(template.as_deref().unwrap_or("expr"))?;
             let (manifest, template_src) = find_embedded_manifest(&template_buf)
                 .unwrap_or((Manifest::Toml(""), &template_buf));
-            (manifest, content.to_string(), template_src.into(), true)
-        }
-        Input::Loop(content, count) => {
-            let templ = if count { "loop-count" } else { "loop" };
-            (
-                Manifest::Toml(""),
-                content.to_string(),
-                templates::get_template(templ)?,
-                true,
-            )
+            (manifest, content.to_string(), template_src.into())
         }
     };
 
-    let mut prelude_str;
     let mut subs = HashMap::with_capacity(2);
 
     subs.insert(consts::SCRIPT_BODY_SUB, &source[..]);
-
-    if sub_prelude {
-        prelude_str =
-            String::with_capacity(prelude_items.iter().map(|i| i.len() + 1).sum::<usize>());
-        for i in prelude_items {
-            prelude_str.push_str(i);
-            prelude_str.push('\n');
-        }
-        subs.insert(consts::SCRIPT_PRELUDE_SUB, &prelude_str[..]);
-    }
 
     let source = templates::expand(&template, &subs)?;
 
@@ -110,10 +84,7 @@ pub fn split_input(
 
     // It's-a mergin' time!
     let def_mani = default_manifest(input, input_id)?;
-    let dep_mani = deps_manifest(deps)?;
-
     let mani = merge_manifest(def_mani, part_mani)?;
-    let mani = merge_manifest(mani, dep_mani)?;
 
     // Fix up relative paths.
     let mani = fix_manifest_paths(mani, &input.base_path())?;
@@ -130,13 +101,14 @@ fn test_split_input() {
     let input_id = OsString::from("input_id");
     macro_rules! si {
         ($i:expr) => {
-            split_input(&$i, &[], &[], &input_id).ok()
+            split_input(&$i, &input_id).ok()
         };
     }
 
-    let dummy_path: ::std::path::PathBuf = "p".into();
-    let dummy_path = &dummy_path;
-    let f = |c| Input::File("n", dummy_path, c, 0);
+    let f = |c: &str| {
+        let dummy_path: std::path::PathBuf = "p".into();
+        Input::File("n".into(), dummy_path, c.into(), 0)
+    };
 
     macro_rules! r {
         ($m:expr, $r:expr) => {
@@ -151,10 +123,7 @@ fn test_split_input() {
 name = "n_input_id"
 path = "n.rs"
 
-[dependencies]
-
 [package]
-authors = ["Anonymous"]
 edition = "2018"
 name = "n"
 version = "0.1.0"
@@ -174,10 +143,7 @@ fn main() {}
 name = "n_input_id"
 path = "n.rs"
 
-[dependencies]
-
 [package]
-authors = ["Anonymous"]
 edition = "2018"
 name = "n"
 version = "0.1.0"
@@ -200,10 +166,7 @@ fn main() {}
 name = "n_input_id"
 path = "n.rs"
 
-[dependencies]
-
 [package]
-authors = ["Anonymous"]
 edition = "2018"
 name = "n"
 version = "0.1.0"
@@ -211,59 +174,6 @@ version = "0.1.0"
             r#"[dependencies]
 time="0.1.25"
 ---
-fn main() {}
-"#
-        )
-    );
-
-    assert_eq!(
-        si!(f(r#"
-// Cargo-Deps: time="0.1.25"
-fn main() {}
-"#)),
-        r!(
-            r#"[[bin]]
-name = "n_input_id"
-path = "n.rs"
-
-[dependencies]
-time = "0.1.25"
-
-[package]
-authors = ["Anonymous"]
-edition = "2018"
-name = "n"
-version = "0.1.0"
-"#,
-            r#"
-// Cargo-Deps: time="0.1.25"
-fn main() {}
-"#
-        )
-    );
-
-    assert_eq!(
-        si!(f(r#"
-// Cargo-Deps: time="0.1.25", libc="0.2.5"
-fn main() {}
-"#)),
-        r!(
-            r#"[[bin]]
-name = "n_input_id"
-path = "n.rs"
-
-[dependencies]
-libc = "0.2.5"
-time = "0.1.25"
-
-[package]
-authors = ["Anonymous"]
-edition = "2018"
-name = "n"
-version = "0.1.0"
-"#,
-            r#"
-// Cargo-Deps: time="0.1.25", libc="0.2.5"
 fn main() {}
 "#
         )
@@ -290,7 +200,6 @@ path = "n.rs"
 time = "0.1.25"
 
 [package]
-authors = ["Anonymous"]
 edition = "2018"
 name = "n"
 version = "0.1.0"
@@ -313,10 +222,10 @@ fn main() {}
 /**
 Returns a slice of the input string with the leading shebang, if there is one, omitted.
 */
-fn strip_shebang(s: &str) -> &str {
+fn strip_shebang(s: &str) -> (&str, bool) {
     match RE_SHEBANG.find(s) {
-        Some(m) => &s[m.end()..],
-        None => s,
+        Some(m) => (&s[m.end()..], true),
+        None => (s, false),
     }
 }
 
@@ -329,7 +238,8 @@ fn test_strip_shebang() {
 and the rest
 \
         "
-        ),
+        )
+        .0,
         "\
 and the rest
 \
@@ -342,7 +252,8 @@ and the rest
 and the rest
 \
         "
-        ),
+        )
+        .0,
         "\
 #![thingy]
 and the rest
@@ -361,8 +272,6 @@ enum Manifest<'s> {
     /// The manifest is a valid TOML fragment (owned).
     // TODO: Change to Cow<'s, str>.
     TomlOwned(String),
-    /// The manifest is a comma-delimited list of dependencies.
-    DepList(&'s str),
 }
 
 impl<'s> Manifest<'s> {
@@ -371,7 +280,6 @@ impl<'s> Manifest<'s> {
         match self {
             Toml(s) => toml::from_str(s),
             TomlOwned(ref s) => toml::from_str(s),
-            DepList(s) => Manifest::dep_list_to_toml(s),
         }
         .map_err(|e| {
             MainError::Tag(
@@ -379,26 +287,6 @@ impl<'s> Manifest<'s> {
                 Box::new(MainError::Other(Box::new(e))),
             )
         })
-    }
-
-    fn dep_list_to_toml(s: &str) -> ::std::result::Result<toml::value::Table, toml::de::Error> {
-        let mut r = String::new();
-        r.push_str("[dependencies]\n");
-        for dep in s.trim().split(',') {
-            // If there's no version specified, add one.
-            match dep.contains('=') {
-                true => {
-                    r.push_str(dep);
-                    r.push('\n');
-                }
-                false => {
-                    r.push_str(dep);
-                    r.push_str("=\"*\"\n");
-                }
-            }
-        }
-
-        toml::from_str(&r)
     }
 }
 
@@ -408,7 +296,7 @@ Locates a manifest embedded in Rust source.
 Returns `Some((manifest, source))` if it finds a manifest, `None` otherwise.
 */
 fn find_embedded_manifest(s: &str) -> Option<(Manifest, &str)> {
-    find_short_comment_manifest(s).or_else(|| find_code_block_manifest(s))
+    find_code_block_manifest(s)
 }
 
 #[test]
@@ -462,59 +350,6 @@ fn main() {
     println!(\"Hi!\");
 }
 "),
-        None
-    );
-
-    assert_eq!(
-        fem("// cargo-deps: time=\"0.1.25\"
-fn main() {}
-"),
-        Some((
-            DepList(" time=\"0.1.25\""),
-            "// cargo-deps: time=\"0.1.25\"
-fn main() {}
-"
-        ))
-    );
-
-    assert_eq!(
-        fem("// cargo-deps: time=\"0.1.25\", libc=\"0.2.5\"
-fn main() {}
-"),
-        Some((
-            DepList(" time=\"0.1.25\", libc=\"0.2.5\""),
-            "// cargo-deps: time=\"0.1.25\", libc=\"0.2.5\"
-fn main() {}
-"
-        ))
-    );
-
-    assert_eq!(
-        fem("
-  // cargo-deps: time=\"0.1.25\"  \n\
-fn main() {}
-"),
-        Some((
-            DepList(" time=\"0.1.25\"  "),
-            "
-  // cargo-deps: time=\"0.1.25\"  \n\
-fn main() {}
-"
-        ))
-    );
-
-    assert_eq!(
-        fem("/* cargo-deps: time=\"0.1.25\" */
-fn main() {}
-"),
-        None
-    );
-
-    assert_eq!(
-        fem(r#"//! [dependencies]
-//! time = "0.1.25"
-fn main() {}
-"#),
         None
     );
 
@@ -617,22 +452,6 @@ fn main() {}
 }
 
 /**
-Locates a "short comment manifest" in Rust source.
-*/
-fn find_short_comment_manifest(s: &str) -> Option<(Manifest, &str)> {
-    /*
-    This is pretty simple: the only valid syntax for this is for the first, non-blank line to contain a single-line comment whose first token is `cargo-deps:`.  That's it.
-    */
-    let re = &*RE_SHORT_MANIFEST;
-    if let Some(cap) = re.captures(s) {
-        if let Some(m) = cap.get(1) {
-            return Some((Manifest::DepList(m.as_str()), s));
-        }
-    }
-    None
-}
-
-/**
 Locates a "code block manifest" in Rust source.
 */
 fn find_code_block_manifest(s: &str) -> Option<(Manifest, &str)> {
@@ -646,7 +465,7 @@ fn find_code_block_manifest(s: &str) -> Option<(Manifest, &str)> {
     Then, we need to take the contents of this doc comment and feed it to a Markdown parser.  We are looking for *the first* fenced code block with a language token of `cargo`.  This is extracted and pasted back together into the manifest.
     */
     let start = match RE_CRATE_COMMENT.captures(s) {
-        Some(cap) => match cap.get(1) {
+        Some(cap) => match cap.get(3) {
             Some(m) => m.start(),
             None => return None,
         },
@@ -1038,36 +857,6 @@ fn default_manifest(input: &Input, input_id: &OsString) -> MainResult<toml::valu
     toml::from_str(&mani_str).map_err(|e| {
         MainError::Tag(
             "could not parse default manifest".into(),
-            Box::new(MainError::Other(Box::new(e))),
-        )
-    })
-}
-
-/**
-Generates a partial Cargo manifest containing the specified dependencies.
-*/
-fn deps_manifest(deps: &[(String, String)]) -> MainResult<toml::value::Table> {
-    let mut mani_str = String::new();
-    mani_str.push_str("[dependencies]\n");
-
-    for &(ref name, ref ver) in deps {
-        mani_str.push_str(name);
-        mani_str.push('=');
-
-        // We only want to quote the version if it *isn't* a table.
-        let quotes = match ver.starts_with('{') {
-            true => "",
-            false => "\"",
-        };
-        mani_str.push_str(quotes);
-        mani_str.push_str(ver);
-        mani_str.push_str(quotes);
-        mani_str.push('\n');
-    }
-
-    toml::from_str(&mani_str).map_err(|e| {
-        MainError::Tag(
-            "could not parse dependency manifest".into(),
             Box::new(MainError::Other(Box::new(e))),
         )
     })

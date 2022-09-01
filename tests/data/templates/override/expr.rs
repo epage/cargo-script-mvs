@@ -1,5 +1,7 @@
-// cargo-deps: boolinator="0.1.0"
-#{prelude}
+//! ```cargo
+//! [dependencies]
+//! boolinator="0.1.0"
+//! ```
 
 extern crate boolinator;
 use boolinator::Boolinator;
