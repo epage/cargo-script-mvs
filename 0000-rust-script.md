@@ -50,7 +50,7 @@ The section should return to the examples given in the previous section, and exp
 
 1. Conflicting work and projects
 2. Cargo evolutional conflicts
-3. The posibility to confuse or distract developers
+3. The possibility to confuse or distract developers
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
