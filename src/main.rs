@@ -1077,16 +1077,26 @@ fn cargo(
     script_args: &[OsString],
     run_quietly: bool,
 ) -> MainResult<Command> {
-    let mut cmd = Command::new("cargo");
+    // Always specify a toolchain to avoid being affected by rust-version(.toml) files:
+    let toolchain_version = toolchain_version.unwrap_or("stable");
+
+    let mut cmd = if std::env::var_os("RUSTUP_TOOLCHAIN").is_some() {
+        // Running inside rustup which can't always call into rustup proxies, so explicitly call
+        // rustup
+        let mut cmd = Command::new("rustup");
+        cmd.args(["run", toolchain_version, "cargo"]);
+        cmd
+    } else {
+        let mut cmd = Command::new("cargo");
+        cmd.arg(format!("+{}", toolchain_version));
+        cmd
+    };
 
     // Set tracing on if not set
     if std::env::var_os("RUST_BACKTRACE").is_none() {
         cmd.env("RUST_BACKTRACE", "1");
         info!("setting RUST_BACKTRACE=1 for this cargo run");
     }
-
-    // Always specify a toolchain to avoid being affected by rust-version(.toml) files:
-    cmd.arg(format!("+{}", toolchain_version.unwrap_or("stable")));
 
     cmd.arg(cmd_name);
 
