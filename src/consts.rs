@@ -141,7 +141,6 @@ pub const DEFAULT_MANIFEST: &str = r##"
 [package]
 name = "#{name}"
 version = "0.1.0"
-authors = ["Anonymous"]
 edition = "2018"
 
 [[bin]]
