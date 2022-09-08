@@ -3,10 +3,12 @@
 - RFC PR: TBD
 - Rust Issue: TBD
 
+
 # Summary
 [summary]: #summary
 
 The rust-script plugin for Cargo is expected to be a start point for expediting productivity in newly interested developers.  The idea is to remove some of the startup project complexity in favor of a small amount of predictable rigidity to allow idiomatic project creation. There are several additional areas where this tool may also be useful. These will be further highlighted in this RFC.
+
 
 # Motivation
 [motivation]: #motivation
@@ -52,12 +54,15 @@ The section should return to the examples given in the previous section, and exp
 2. Cargo evolutional conflicts
 3. The possibility to confuse or distract developers
 
+
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
+
 
 - Why is this design the best in the space of possible designs?   TBD
 - What other designs have been considered and what is the rationale for not choosing them?  Too many others
 - What is the impact of not doing this?  Missed opportunity
+
 
 # Prior art
 [prior-art]: #prior-art
@@ -87,6 +92,7 @@ Please also take into consideration that rust sometimes intentionally diverges f
   * Define how this interacts with cargo config files enhancement
   * Rust toolchain files interactions definition
   * Identify a final command name and file extension
+
 
 - What parts of the design do you expect to resolve through the RFC process before this gets merged?
 - What parts of the design do you expect to resolve through the implementation of this feature before stabilization?
