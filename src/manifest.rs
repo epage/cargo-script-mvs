@@ -452,6 +452,37 @@ fn main() {}
     );
 
     assert_eq!(
+        fem(r#"#!/usr/bin/env rust-script
+
+/*!
+```Cargo
+[dependencies]
+time = "0.1.25"
+```
+*/
+fn main() {}
+"#),
+        Some((
+            TomlOwned(
+                r#"[dependencies]
+time = "0.1.25"
+"#
+                .into()
+            ),
+            r#"#!/usr/bin/env rust-script
+
+/*!
+```Cargo
+[dependencies]
+time = "0.1.25"
+```
+*/
+fn main() {}
+"#
+        ))
+    );
+
+    assert_eq!(
         fem(r#"/*!
  * [dependencies]
  * time = "0.1.25"
@@ -502,7 +533,8 @@ fn find_code_block_manifest(s: &str) -> Option<(Manifest, &str)> {
 
     Then, we need to take the contents of this doc comment and feed it to a Markdown parser.  We are looking for *the first* fenced code block with a language token of `cargo`.  This is extracted and pasted back together into the manifest.
     */
-    let start = match RE_CRATE_COMMENT.captures(s) {
+    let rest = strip_shebang(s).0;
+    let start = match RE_CRATE_COMMENT.captures(rest) {
         Some(cap) => match cap.get(3) {
             Some(m) => m.start(),
             None => return None,
@@ -510,7 +542,7 @@ fn find_code_block_manifest(s: &str) -> Option<(Manifest, &str)> {
         None => return None,
     };
 
-    let comment = match extract_comment(&s[start..]) {
+    let comment = match extract_comment(&rest[start..]) {
         Ok(s) => s,
         Err(err) => {
             error!("error slicing comment: {}", err);
