@@ -945,12 +945,25 @@ fn merge_manifest(
     mut into_t: toml::value::Table,
     from_t: toml::value::Table,
 ) -> MainResult<toml::value::Table> {
+    let exclude_list = " bin lib workspace ";
+    let exclude_recurse = " package.metadata dependencies. ";
     for (k, v) in from_t {
         // Skip tables like [bin] to prevent a user from shooting themselves in the foot
-        if k == "bin" {
+        // if cargo-features merge the string list
+        // cargo-features , Unstable, nightly-only features (split string, find each, concat/add if not found)
+        //
+        if exclude_list.find(&k) != None {
             error!("inline manifest error: cannot overwrite table [{}].", k);
             continue;
         }
+        let mut kv = k.clone();
+        if v.as_str() != None {
+            let st = String::from(v.as_str().unwrap());
+            kv = kv + "." + &st + " ";
+        } else {
+            kv = kv + ". ";
+        }
+
         let mani_merge: toml::value::Table;
         match v {
             toml::Value::Table(from_t) => match into_t.entry(k.clone()) {
@@ -962,6 +975,10 @@ fn merge_manifest(
                         "cannot merge manifests: cannot merge \
                                 table and non-table values",
                     )?;
+                    if exclude_recurse.find(&kv) != None {
+                        error!("inline manifest error: cannot overwrite table [{}].", kv);
+                        continue;
+                    }
                     mani_merge = merge_manifest(into_t.clone(), from_t.clone())?;
                     into_t.extend(mani_merge);
                     info!("AFTER extending into_t:  - {:?}", into_t);
