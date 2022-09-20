@@ -146,11 +146,13 @@ fn parse_args() -> MainResult<Args> {
                 .action(clap::ArgAction::SetTrue)
                 .requires("script"),
         )
+        // Set the default debug variable to false
         .arg(
-            Arg::new("debug")
-                .help("Build a debug executable, not an optimised one.")
-                .long("debug")
-                .action(clap::ArgAction::SetTrue),
+            Arg::new("release")
+                .help("Build a release executable, an optimised one.")
+                .short('r')
+                .long("release")
+                .conflicts_with_all(&["bench"]),
         )
         .arg(
             Arg::new("features")
@@ -189,14 +191,14 @@ fn parse_args() -> MainResult<Args> {
                 .help("Compile and run tests.")
                 .long("test")
                 .action(clap::ArgAction::SetTrue)
-                .conflicts_with_all(&["bench", "debug", "force"]),
+                .conflicts_with_all(&["bench", "force"]),
         )
         .arg(
             Arg::new("bench")
                 .help("Compile and run benchmarks. Requires a nightly toolchain.")
                 .long("bench")
                 .action(clap::ArgAction::SetTrue)
-                .conflicts_with_all(&["test", "debug", "force"]),
+                .conflicts_with_all(&["test", "force"]),
         )
         .arg(
             Arg::new("template")
@@ -327,7 +329,7 @@ fn parse_args() -> MainResult<Args> {
         pkg_path: m.get_one::<PathBuf>("pkg_path").map(Into::into),
         cargo_output: *m.get_one::<bool>("cargo-output").expect("defaulted"),
         clear_cache: *m.get_one::<bool>("clear-cache").expect("defaulted"),
-        debug: *m.get_one::<bool>("debug").expect("defaulted"),
+        debug: !m.is_present("release"),
         force: *m.get_one::<bool>("force").expect("defaulted"),
         build_kind,
         template: m.get_one::<String>("template").map(Into::into),
