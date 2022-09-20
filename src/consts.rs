@@ -143,15 +143,6 @@ name = "#{name}"
 version = "0.1.0"
 edition = "2018"
 
-[package.ers]
-format_version = "0.0.2"
-template_data = "off"
-
-[package.ers.compile_opt]
-gdb_enable = "false"
-debug_level = "info"
-optimizer = "disable"
-
 [[bin]]
 name = "#{bin_name}"
 path = "#{file}.rs"
@@ -182,3 +173,27 @@ Measured in milliseconds.
 // It's been *one week* since you looked at me,
 // cocked your head to the side and said "I'm angry."
 pub const MAX_CACHE_AGE_MS: u128 = 7 * 24 * 60 * 60 * 1000;
+
+/**
+Exclusion list for TOP level merging of Cargo Data
+*/
+pub const MERGE_EXCLUSIONS: &[&str] = &["bin", "lib", "workspace"];
+
+pub struct MREList<T: AsRef<str>> {
+    pub e_key: T,
+    pub e_val: T,
+}
+
+/**
+Exclusion list for recursive merging of Cargo Data, minimal wildcard requires subentry
+*/
+pub const MRELIST: [MREList<&'static str>; 2] = [
+    MREList {
+        e_key: "package",
+        e_val: "metadata",
+    },
+    MREList {
+        e_key: "dependencies",
+        e_val: "*",
+    },
+];

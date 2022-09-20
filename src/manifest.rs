@@ -8,6 +8,8 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::consts;
+use crate::consts::MERGE_EXCLUSIONS;
+use crate::consts::MRELIST;
 use crate::error::{MainError, MainResult};
 use crate::templates;
 use crate::Input;
@@ -86,7 +88,6 @@ pub fn split_input(input: &Input, input_id: &OsString) -> MainResult<(String, St
     let def_mani = default_manifest(input, input_id)?;
     info!("NEW default manifest: {:?}", def_mani);
     let mani = merge_manifest(def_mani, part_mani)?;
-    //let mani = merge_manifest(part_mani, def_mani)?;
 
     // Fix up relative paths.
     let mani = fix_manifest_paths(mani, &input.base_path())?;
@@ -129,15 +130,6 @@ path = "n.rs"
 edition = "2018"
 name = "n"
 version = "0.1.0"
-
-[package.ers]
-format_version = "0.0.2"
-template_data = "off"
-
-[package.ers.compile_opt]
-debug_level = "info"
-gdb_enable = "false"
-optimizer = "disable"
 "#,
             r#"fn main() {}"#
         )
@@ -158,15 +150,6 @@ path = "n.rs"
 edition = "2018"
 name = "n"
 version = "0.1.0"
-
-[package.ers]
-format_version = "0.0.2"
-template_data = "off"
-
-[package.ers.compile_opt]
-debug_level = "info"
-gdb_enable = "false"
-optimizer = "disable"
 "#,
             r#"
 ---
@@ -190,15 +173,6 @@ path = "n.rs"
 edition = "2018"
 name = "n"
 version = "0.1.0"
-
-[package.ers]
-format_version = "0.0.2"
-template_data = "off"
-
-[package.ers.compile_opt]
-debug_level = "info"
-gdb_enable = "false"
-optimizer = "disable"
 "#,
             r#"[dependencies]
 time="0.1.25"
@@ -232,15 +206,6 @@ time = "0.1.25"
 edition = "2018"
 name = "n"
 version = "0.1.0"
-
-[package.ers]
-format_version = "0.0.2"
-template_data = "off"
-
-[package.ers.compile_opt]
-debug_level = "info"
-gdb_enable = "false"
-optimizer = "disable"
 "#,
             r#"
 /*!
@@ -935,36 +900,27 @@ fn default_manifest(input: &Input, input_id: &OsString) -> MainResult<toml::valu
 /**
 Given two Cargo manifests, merges the second (user's) *into* the first (default).
 
-Mainly we care about the \[package\] and \[bin\] sections because they are in the default manifest.
+The \[package\] and \[bin\] sections are of interest in that they are in the default manifest.
 The "info_t.extend(from_t);" call will add new map entries and overwrite map entries with the same name.
 Together with the recursive call this gives us a sub_element merger.
-
-We preserve sections like \[bin\] however since changing this would likely break compilation.
+Sections like \[bin\] are preserved however since changing this would likely break compilation.
 */
 fn merge_manifest(
     mut into_t: toml::value::Table,
     from_t: toml::value::Table,
 ) -> MainResult<toml::value::Table> {
-    let exclude_list = " bin lib workspace ";
-    let exclude_recurse = " package.metadata dependencies. ";
     for (k, v) in from_t {
-        // Skip tables like [bin] to prevent a user from shooting themselves in the foot
-        // if cargo-features merge the string list
+        // Skip excluded tables to prevent a user from shooting themselves in the foot
+        // if cargo-features merge the string list of the individual arrays
         // cargo-features , Unstable, nightly-only features (split string, find each, concat/add if not found)
         //
-        if exclude_list.find(&k) != None {
+        if MERGE_EXCLUSIONS.contains(&k.as_str()) {
+            // Halt processing on excluded keys
             error!("inline manifest error: cannot overwrite table [{}].", k);
             continue;
         }
-        let mut kv = k.clone();
-        if v.as_str() != None {
-            let st = String::from(v.as_str().unwrap());
-            kv = kv + "." + &st + " ";
-        } else {
-            kv = kv + ". ";
-        }
-
         let mani_merge: toml::value::Table;
+        let v2 = v.clone();
         match v {
             toml::Value::Table(from_t) => match into_t.entry(k.clone()) {
                 toml::map::Entry::Vacant(e) => {
@@ -975,10 +931,21 @@ fn merge_manifest(
                         "cannot merge manifests: cannot merge \
                                 table and non-table values",
                     )?;
-                    if exclude_recurse.find(&kv) != None {
-                        error!("inline manifest error: cannot overwrite table [{}].", kv);
-                        continue;
+
+                    for itm in &MRELIST {
+                        if k == itm.e_key
+                            && (v2.as_str() == None
+                                || itm.e_val.eq("*")
+                                || itm.e_val == v2.as_str().unwrap())
+                        {
+                            error!(
+                                "inline manifest error: cannot overwrite table [{}.{}].",
+                                itm.e_key, itm.e_val
+                            );
+                            continue;
+                        }
                     }
+
                     mani_merge = merge_manifest(into_t.clone(), from_t.clone())?;
                     into_t.extend(mani_merge);
                     info!("AFTER extending into_t:  - {:?}", into_t);
