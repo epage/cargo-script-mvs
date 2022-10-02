@@ -45,9 +45,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "clap"
-version = "4.0.1"
+version = "4.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd03107d0f87139c1774a15f3db2165b0652b5460c58c27e561f89c20c599eaf"
+checksum = "5840cd9093aabeabf7fd932754c435b7674520fc3ddc935c397837050f0f1e4b"
 dependencies = [
  "atty",
  "bitflags",
@@ -60,9 +60,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.0.1"
+version = "4.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca689d7434ce44517a12a89456b2be4d1ea1cafcd8f581978c03d45f5a5c12a7"
+checksum = "92289ffc6fb4a85d85c246ddb874c05a87a2e540fb6ad52f7ca07c8c1e1840b1"
 dependencies = [
  "heck",
  "proc-macro-error",
@@ -177,9 +177,9 @@ dependencies = [
 
 [[package]]
 name = "fastrand"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3fcf0cee53519c866c09b5de1f6c56ff9d647101f81c1964fa632e148896cdf"
+checksum = "a7a407cfaa3385c4ae6b23e84623d48c2798d06e3e6a1878f7f59f17b3f86499"
 dependencies = [
  "instant",
 ]
@@ -264,9 +264,9 @@ checksum = "112c678d4050afce233f4f2852bb2eb519230b3cf12f33585275537d7e41578d"
 
 [[package]]
 name = "libc"
-version = "0.2.126"
+version = "0.2.134"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "349d5a591cd28b49e1d1037471617a32ddcda5731b99419008085f72d5a53836"
+checksum = "329c933548736bc49fd575ee68c89e8be4d260064184389a5b77517cddd99ffb"
 
 [[package]]
 name = "log"
@@ -367,9 +367,9 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.2.13"
+version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62f25bc4c7e55e0b0b7a1d43fb893f4fa1361d0abe38b9ce4f323c2adfe6ef42"
+checksum = "fb5a58c1855b4b6819d59012155603f0b22ad30cad752600aadfcb695265519a"
 dependencies = [
  "bitflags",
 ]
@@ -491,15 +491,15 @@ dependencies = [
 
 [[package]]
 name = "similar"
-version = "2.1.0"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e24979f63a11545f5f2c60141afe249d4f19f84581ea2138065e400941d83d3"
+checksum = "62ac7f900db32bf3fd12e0117dd3dc4da74bc52ebaac97f39668446d89694803"
 
 [[package]]
 name = "snapbox"
-version = "0.3.3"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44d199ccf8f606592df2d145db26f2aa45344e23c64b074cc5a4047f1d99b0f7"
+checksum = "f98a96656eecd1621c5830831b48eb6903a9f86aaeb61b9f358a9bd462414ddd"
 dependencies = [
  "concolor",
  "content_inspector",
@@ -517,9 +517,9 @@ dependencies = [
 
 [[package]]
 name = "snapbox-macros"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a253e6f894cfa440cba00600a249fa90869d8e0ec45ab274a456e043a0ce8f2"
+checksum = "485e65c1203eb37244465e857d15a26d3a85a5410648ccb53b18bd44cb3a7336"
 
 [[package]]
 name = "strsim"
