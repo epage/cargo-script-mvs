@@ -101,7 +101,6 @@ fn parse_args() -> MainResult<Args> {
     let app = Command::new(consts::PROGRAM_NAME)
         .version(version)
         .about(about)
-        .trailing_var_arg(true)
         .arg(
             Arg::new("script")
                 .help("Script file or expression to execute.")
@@ -117,15 +116,16 @@ fn parse_args() -> MainResult<Args> {
                     vec!["clear-cache", "list-templates"]
                 })
                 .conflicts_with_all(if cfg!(windows) {
-                    &[
+                    vec![
                         "list-templates",
                         "install-file-association",
                         "uninstall-file-association",
                     ]
                 } else {
-                    &["list-templates"]
+                    vec!["list-templates"]
                 })
-                .multiple_values(true),
+                .num_args(1..)
+                .trailing_var_arg(true),
         )
         .arg(
             Arg::new("expr")
@@ -152,6 +152,7 @@ fn parse_args() -> MainResult<Args> {
                 .help("Build a release executable, an optimised one.")
                 .short('r')
                 .long("release")
+                .action(clap::ArgAction::SetTrue)
                 .conflicts_with_all(&["bench"]),
         )
         .arg(
@@ -181,7 +182,6 @@ fn parse_args() -> MainResult<Args> {
             Arg::new("pkg_path")
                 .help("Specify where to place the generated Cargo package.")
                 .long("pkg-path")
-                .action(clap::ArgAction::Set)
                 .value_parser(clap::value_parser!(PathBuf))
                 .requires("script")
                 .conflicts_with_all(&["clear-cache", "force"]),
@@ -205,7 +205,6 @@ fn parse_args() -> MainResult<Args> {
                 .help("Specify a template to use for expression scripts.")
                 .long("template")
                 .short('t')
-                .action(clap::ArgAction::Set)
                 .requires("expr"),
         )
         .arg(
@@ -214,7 +213,6 @@ fn parse_args() -> MainResult<Args> {
                 .long("toolchain-version")
                 // "channel"
                 .short('c')
-                .action(clap::ArgAction::Set)
                 // FIXME: remove if benchmarking is stabilized
                 .conflicts_with("bench"),
         )
@@ -329,7 +327,7 @@ fn parse_args() -> MainResult<Args> {
         pkg_path: m.get_one::<PathBuf>("pkg_path").map(Into::into),
         cargo_output: *m.get_one::<bool>("cargo-output").expect("defaulted"),
         clear_cache: *m.get_one::<bool>("clear-cache").expect("defaulted"),
-        debug: !m.is_present("release"),
+        debug: !m.get_flag("release"),
         force: *m.get_one::<bool>("force").expect("defaulted"),
         build_kind,
         template: m.get_one::<String>("template").map(Into::into),
