@@ -8,8 +8,6 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::consts;
-use crate::consts::MERGE_EXCLUSIONS;
-use crate::consts::MRELIST;
 use crate::error::{MainError, MainResult};
 use crate::templates;
 use crate::Input;
@@ -87,7 +85,7 @@ pub fn split_input(input: &Input, input_id: &OsString) -> MainResult<(String, St
     // It's-a mergin' time!
     let def_mani = default_manifest(input, input_id)?;
     info!("NEW default manifest: {:?}", def_mani);
-    let mani = merge_manifest(def_mani, part_mani)?;
+    let mani = merge_manifest("^".to_string(), def_mani, part_mani)?;
 
     // Fix up relative paths.
     let mani = fix_manifest_paths(mani, &input.base_path())?;
@@ -906,47 +904,61 @@ Together with the recursive call this gives us a sub_element merger.
 Sections like \[bin\] are preserved however since changing this would likely break compilation.
 */
 fn merge_manifest(
+    mut parent_id: String,
     mut into_t: toml::value::Table,
     from_t: toml::value::Table,
 ) -> MainResult<toml::value::Table> {
+    const MERGE_EXCLUSIONS: &[&[&str]] = &[
+        &["^", "bin"],
+        &["^", "lib"],
+        &["^", "workspace"],
+        &["package", "dependencies"],
+        &["metadata", "*"],
+    ];
+
+    info!("Parent ID = {}", parent_id);
     for (k, v) in from_t {
         // Skip excluded tables to prevent a user from shooting themselves in the foot
         // if cargo-features merge the string list of the individual arrays
         // cargo-features , Unstable, nightly-only features (split string, find each, concat/add if not found)
         //
-        if MERGE_EXCLUSIONS.contains(&k.as_str()) {
-            // Halt processing on excluded keys
-            error!("inline manifest error: cannot overwrite table [{}].", k);
+        info!("Key = {}, Value = {:?}", k, v);
+        let mut should_continue = false;
+
+        for exclude in MERGE_EXCLUSIONS.iter() {
+            if exclude[1].contains(&k.as_str()) && parent_id == exclude[0] {
+                // Halt processing on excluded keys
+                should_continue = true;
+                match parent_id.as_str() {
+                    "^" => error!("inline manifest error: cannot overwrite table [{}].", k),
+                    _ => error!(
+                        "inline manifest error: cannot overwrite table [{}.{}].",
+                        parent_id, k
+                    ),
+                }
+            }
+        }
+        if should_continue {
             continue;
         }
+
         let mani_merge: toml::value::Table;
         let v2 = v.clone();
         match v {
             toml::Value::Table(from_t) => match into_t.entry(k.clone()) {
                 toml::map::Entry::Vacant(e) => {
                     e.insert(toml::Value::Table(from_t));
+                    info!("Insert into Slot = ");
                 }
                 toml::map::Entry::Occupied(e) => {
                     let into_t = as_table_mut(e.into_mut()).ok_or(
                         "cannot merge manifests: cannot merge \
                                 table and non-table values",
                     )?;
-
-                    for itm in &MRELIST {
-                        if k == itm.e_key
-                            && (v2.as_str() == None
-                                || itm.e_val.eq("*")
-                                || itm.e_val == v2.as_str().unwrap())
-                        {
-                            error!(
-                                "inline manifest error: cannot overwrite table [{}.{}].",
-                                itm.e_key, itm.e_val
-                            );
-                            continue;
-                        }
-                    }
-
-                    mani_merge = merge_manifest(into_t.clone(), from_t.clone())?;
+                    parent_id = v2.to_string();
+                    info!("descending  parent = {}, Value = {:?}", parent_id, into_t);
+                    mani_merge = merge_manifest(parent_id.clone(), into_t.clone(), from_t.clone())?;
+                    info!("Slot Occupado = {:?}", mani_merge);
                     into_t.extend(mani_merge);
                     info!("AFTER extending into_t:  - {:?}", into_t);
                 }
@@ -965,6 +977,42 @@ fn merge_manifest(
             _ => None,
         }
     }
+}
+
+#[test]
+fn test_merge_manifest() {
+    use self::Manifest::*;
+    use toml::map::Map;
+    //use toml::Value;
+
+    let mm = merge_manifest;
+    let mani_a = TomlOwned(
+        r#"[dependencies]
+time = "0.1.25"
+"#
+        .into(),
+    );
+    let mani_b = TomlOwned(
+        r#"[dependencies]
+time = "0.1.25"
+foo = "bar"
+"#
+        .into(),
+    );
+
+    let mani_c = mm(
+        "^".to_string(),
+        mani_a.into_toml().unwrap(),
+        mani_b.into_toml().unwrap(),
+    );
+    //info!("Result mani_c = {:?}", mani_c);
+
+    let value = mani_c.unwrap_or(Map::new());
+    let _val1 = value["dependencies"].get("foo");
+    // Still a struggle with this part
+    // when working depth can be checked here
+    //assert_eq!(mani_c, Ok);
+    //assert_eq!(val1, "bar");
 }
 
 /**
