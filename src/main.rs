@@ -153,7 +153,7 @@ fn parse_args() -> MainResult<Args> {
                 .short('r')
                 .long("release")
                 .action(clap::ArgAction::SetTrue)
-                .conflicts_with_all(&["bench"]),
+                .conflicts_with_all(["bench"]),
         )
         .arg(
             Arg::new("features")
@@ -184,21 +184,21 @@ fn parse_args() -> MainResult<Args> {
                 .long("pkg-path")
                 .value_parser(clap::value_parser!(PathBuf))
                 .requires("script")
-                .conflicts_with_all(&["clear-cache", "force"]),
+                .conflicts_with_all(["clear-cache", "force"]),
         )
         .arg(
             Arg::new("test")
                 .help("Compile and run tests.")
                 .long("test")
                 .action(clap::ArgAction::SetTrue)
-                .conflicts_with_all(&["bench", "force"]),
+                .conflicts_with_all(["bench", "force"]),
         )
         .arg(
             Arg::new("bench")
                 .help("Compile and run benchmarks. Requires a nightly toolchain.")
                 .long("bench")
                 .action(clap::ArgAction::SetTrue)
-                .conflicts_with_all(&["test", "force"]),
+                .conflicts_with_all(["test", "force"]),
         )
         .arg(
             Arg::new("template")
@@ -300,7 +300,7 @@ fn parse_args() -> MainResult<Args> {
     if let Some(toolchain_version) = &toolchain_version {
         if !unstable_flags.contains(&UnstableFlags::ToolchainVersion) {
             return Err(
-                    format!("`--toolchain-version={}` is unstable and requires `-Z toolchain-version` (epage/cargo-script-mvs#36).", toolchain_version)
+                    format!("`--toolchain-version={toolchain_version}` is unstable and requires `-Z toolchain-version` (epage/cargo-script-mvs#36).")
                         .into(),
                 );
         }
@@ -356,7 +356,7 @@ fn main() {
             std::process::exit(code);
         }
         Err(ref err) => {
-            writeln!(stderr, "error: {}", err).unwrap();
+            writeln!(stderr, "error: {err}").unwrap();
             std::process::exit(1);
         }
     }
@@ -512,7 +512,7 @@ fn clean_cache(max_age: u128) -> MainResult<()> {
                 // metadata file *itself*.
                 let meta_mtime = {
                     let meta_path = get_pkg_metadata_path(&path);
-                    let meta_file = match fs::File::open(&meta_path) {
+                    let meta_file = match fs::File::open(meta_path) {
                         Ok(file) => file,
                         Err(..) => {
                             info!("couldn't open metadata for {:?}", path);
@@ -576,7 +576,7 @@ fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> MainResult<()> {
     info!("generating Cargo package...");
     let mani_path = action.manifest_path();
     let mani_hash = old_meta.map(|m| &*m.manifest_hash);
-    match overwrite_file(&mani_path, mani_str, mani_hash)? {
+    match overwrite_file(mani_path, mani_str, mani_hash)? {
         FileOverwrite::Same => (),
         FileOverwrite::Changed { new_hash } => {
             meta.manifest_hash = new_hash;
@@ -595,7 +595,7 @@ fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> MainResult<()> {
         } else {
             old_meta.map(|m| &*m.script_hash)
         };
-        match overwrite_file(&script_path, script_str, script_hash)? {
+        match overwrite_file(script_path, script_str, script_hash)? {
             FileOverwrite::Same => (),
             FileOverwrite::Changed { new_hash } => {
                 meta.script_hash = new_hash;
@@ -676,7 +676,7 @@ impl InputAction {
     fn cargo(&self, cmd: &str, script_args: &[OsString], run_quietly: bool) -> MainResult<Command> {
         cargo(
             cmd,
-            &*self.manifest_path().to_string_lossy(),
+            &self.manifest_path().to_string_lossy(),
             self.toolchain_version.as_deref(),
             &self.metadata,
             script_args,
@@ -1088,7 +1088,7 @@ fn cargo(
         cmd
     } else {
         let mut cmd = Command::new("cargo");
-        cmd.arg(format!("+{}", toolchain_version));
+        cmd.arg(format!("+{toolchain_version}"));
         cmd
     };
 
