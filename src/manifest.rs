@@ -90,7 +90,7 @@ pub fn split_input(input: &Input, input_id: &OsString) -> MainResult<(String, St
     let mani = fix_manifest_paths(mani, &input.base_path())?;
     info!("mani: {:?}", mani);
 
-    let mani_str = format!("{}", toml::Value::Table(mani));
+    let mani_str = format!("{}", mani);
     info!("mani_str: {}", mani_str);
 
     Ok((mani_str, source))
