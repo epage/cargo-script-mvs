@@ -27,7 +27,7 @@ impl fmt::Display for MainError {
         use std::fmt::Display;
         match *self {
             Io(ref err) => Display::fmt(err, fmt),
-            Tag(ref msg, ref err) => write!(fmt, "{}: {}", msg, err),
+            Tag(ref msg, ref err) => write!(fmt, "{msg}: {err}"),
             Other(ref err) => Display::fmt(err, fmt),
             OtherOwned(ref err) => Display::fmt(err, fmt),
             OtherBorrowed(err) => Display::fmt(err, fmt),

@@ -58,7 +58,7 @@ pub fn split_input(input: &Input, input_id: &OsString) -> MainResult<(String, St
                 let (content, found_shebang) = strip_shebang(content.as_str());
                 // use a newline separator when a shebang is found, and a tab when no shebang is found to preserve original line numbering
                 let separator = if found_shebang { "\n" } else { "\t" };
-                format!("fn main() -> Result<(), Box<dyn std::error::Error+Sync+Send>> {{\t{{{}    {}    }}\n    Ok(())\n}}",separator, content)
+                format!("fn main() -> Result<(), Box<dyn std::error::Error+Sync+Send>> {{\t{{{separator}    {content}    }}\n    Ok(())\n}}")
             };
             (manifest, source, templates::get_template("file")?)
         }
@@ -90,7 +90,7 @@ pub fn split_input(input: &Input, input_id: &OsString) -> MainResult<(String, St
     let mani = fix_manifest_paths(mani, &input.base_path())?;
     info!("mani: {:?}", mani);
 
-    let mani_str = format!("{}", toml::Value::Table(mani));
+    let mani_str = format!("{mani}");
     info!("mani_str: {}", mani_str);
 
     Ok((mani_str, source))
@@ -538,7 +538,7 @@ fn scrape_markdown_manifest(content: &str) -> Option<String> {
             }
             Event::Text(ref text) if found => {
                 let s = output.get_or_insert(String::new());
-                s.push_str(&*text);
+                s.push_str(text);
             }
             Event::End(Tag::CodeBlock(_)) if found => {
                 found = false;
@@ -653,7 +653,7 @@ fn extract_comment(s: &str) -> MainResult<String> {
 
     fn n_leading_spaces(s: &str, n: usize) -> MainResult<()> {
         if !s.chars().take(n).all(|c| c == ' ') {
-            return Err(format!("leading {:?} chars aren't all spaces: {:?}", n, s).into());
+            return Err(format!("leading {n:?} chars aren't all spaces: {s:?}").into());
         }
         Ok(())
     }

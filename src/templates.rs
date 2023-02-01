@@ -36,8 +36,7 @@ pub fn expand(src: &str, subs: &HashMap<&str, &str>) -> MainResult<String> {
             Some(s) => result.push_str(s),
             None => {
                 return Err(MainError::OtherOwned(format!(
-                    "substitution `{}` in template is unknown",
-                    sub_name
+                    "substitution `{sub_name}` in template is unknown"
                 )))
             }
         }
@@ -54,7 +53,7 @@ pub fn get_template(name: &str) -> MainResult<Cow<'static, str>> {
 
     let base = platform::templates_dir()?;
 
-    let file = fs::File::open(base.join(format!("{}.rs", name)))
+    let file = fs::File::open(base.join(format!("{name}.rs")))
         .map_err(MainError::from)
         .map_err(|e| {
             MainError::Tag(
