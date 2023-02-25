@@ -881,10 +881,10 @@ fn default_manifest(input: &Input, input_id: &OsString) -> MainResult<toml::valu
         let pkg_name = input.package_name();
         let bin_name = format!("{}_{}", &*pkg_name, input_id.to_str().unwrap());
         let mut subs = HashMap::with_capacity(3);
-        subs.insert(consts::MANI_NAME_SUB, &*pkg_name);
-        subs.insert(consts::MANI_BIN_NAME_SUB, &*bin_name);
-        subs.insert(consts::MANI_FILE_SUB, input.safe_name());
-        templates::expand(consts::DEFAULT_MANIFEST, &subs)?
+        subs.insert(MANI_NAME_SUB, &*pkg_name);
+        subs.insert(MANI_BIN_NAME_SUB, &*bin_name);
+        subs.insert(MANI_FILE_SUB, input.safe_name());
+        templates::expand(DEFAULT_MANIFEST, &subs)?
     };
     toml::from_str(&mani_str).map_err(|e| {
         MainError::Tag(
@@ -893,6 +893,29 @@ fn default_manifest(input: &Input, input_id: &OsString) -> MainResult<toml::valu
         )
     })
 }
+
+/**
+The default manifest used for packages.
+*/
+pub const DEFAULT_MANIFEST: &str = r##"
+[package]
+name = "#{name}"
+version = "0.1.0"
+edition = "2018"
+
+[[bin]]
+name = "#{bin_name}"
+path = "#{file}.rs"
+"##;
+
+/// Substitution for the identifier-safe package name of the script.
+pub const MANI_NAME_SUB: &str = "name";
+
+/// Substitution for the identifier-safe bin name of the script.
+pub const MANI_BIN_NAME_SUB: &str = "bin_name";
+
+/// Substitution for the filesystem-safe name of the script.
+pub const MANI_FILE_SUB: &str = "file";
 
 /**
 Given two Cargo manifests, merges the second *into* the first.

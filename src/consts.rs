@@ -123,29 +123,6 @@ where F: FnMut(&str, usize) -> T, T: 'static {
 }
 "#;
 
-/// Substitution for the identifier-safe package name of the script.
-pub const MANI_NAME_SUB: &str = "name";
-
-/// Substitution for the identifier-safe bin name of the script.
-pub const MANI_BIN_NAME_SUB: &str = "bin_name";
-
-/// Substitution for the filesystem-safe name of the script.
-pub const MANI_FILE_SUB: &str = "file";
-
-/**
-The default manifest used for packages.
-*/
-pub const DEFAULT_MANIFEST: &str = r##"
-[package]
-name = "#{name}"
-version = "0.1.0"
-edition = "2018"
-
-[[bin]]
-name = "#{bin_name}"
-path = "#{file}.rs"
-"##;
-
 /**
 The name of the package metadata file.
 */
