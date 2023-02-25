@@ -4,7 +4,6 @@ This module is for platform-specific stuff.
 
 pub use self::inner::force_cargo_color;
 
-use crate::consts;
 use crate::error::MainError;
 use std::fs;
 
@@ -35,7 +34,7 @@ pub fn cache_dir() -> Result<PathBuf, MainError> {
         Ok(path.into())
     } else {
         dirs_next::cache_dir()
-            .map(|dir| dir.join(consts::PROGRAM_NAME))
+            .map(|dir| dir.join(env!("CARGO_PKG_NAME")))
             .ok_or_else(|| ("Cannot get cache directory").into())
     }
 }
@@ -63,7 +62,7 @@ pub fn templates_dir() -> Result<PathBuf, MainError> {
     }
 
     dirs_next::data_local_dir()
-        .map(|dir| dir.join(consts::PROGRAM_NAME).join("templates"))
+        .map(|dir| dir.join(env!("CARGO_PKG_NAME")).join("templates"))
         .ok_or_else(|| ("Cannot get cache directory").into())
 }
 

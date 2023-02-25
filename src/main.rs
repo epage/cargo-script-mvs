@@ -95,11 +95,10 @@ impl BuildKind {
 
 fn parse_args() -> MainResult<Args> {
     use clap::{Arg, Command};
-    let version = option_env!("CARGO_PKG_VERSION").unwrap_or("unknown");
     let about = r#"Compiles and runs a Rust script."#;
 
-    let app = Command::new(consts::PROGRAM_NAME)
-        .version(version)
+    let app = Command::new(env!("CARGO_PKG_NAME"))
+        .version(env!("CARGO_PKG_VERSION"))
         .about(about)
         .arg(
             Arg::new("script")
