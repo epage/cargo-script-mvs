@@ -7,7 +7,6 @@ use self::regex::Regex;
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::consts;
 use crate::error::{MainError, MainResult};
 use crate::templates;
 use crate::Input;
@@ -72,7 +71,7 @@ pub fn split_input(input: &Input, input_id: &OsString) -> MainResult<(String, St
 
     let mut subs = HashMap::with_capacity(2);
 
-    subs.insert(consts::SCRIPT_BODY_SUB, &source[..]);
+    subs.insert(SCRIPT_BODY_SUB, &source[..]);
 
     let source = templates::expand(&template, &subs)?;
 
@@ -95,6 +94,9 @@ pub fn split_input(input: &Input, input_id: &OsString) -> MainResult<(String, St
 
     Ok((mani_str, source))
 }
+
+/// Substitution for the script body.
+pub const SCRIPT_BODY_SUB: &str = "script";
 
 #[test]
 fn test_split_input() {

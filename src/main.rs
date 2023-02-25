@@ -5,7 +5,6 @@ If this is set to `false`, then code that automatically deletes stuff *won't*.
 */
 const ALLOW_AUTO_REMOVE: bool = true;
 
-mod consts;
 mod error;
 mod manifest;
 mod platform;
@@ -447,7 +446,7 @@ fn try_main() -> MainResult<i32> {
         let cc = args.clear_cache;
         Defer::<_, MainError>::new(move || {
             if !cc {
-                clean_cache(consts::MAX_CACHE_AGE_MS)?;
+                clean_cache(MAX_CACHE_AGE_MS)?;
             }
             Ok(())
         })
@@ -465,6 +464,15 @@ fn try_main() -> MainResult<i32> {
 
     Ok(exit_code)
 }
+
+/**
+How old can stuff in the cache be before we automatically clear it out?
+
+Measured in milliseconds.
+*/
+// It's been *one week* since you looked at me,
+// cocked your head to the side and said "I'm angry."
+pub const MAX_CACHE_AGE_MS: u128 = 7 * 24 * 60 * 60 * 1000;
 
 /**
 Clean up the cache folder.
@@ -850,7 +858,7 @@ fn get_pkg_metadata_path<P>(pkg_path: P) -> PathBuf
 where
     P: AsRef<Path>,
 {
-    pkg_path.as_ref().join(consts::METADATA_FILE)
+    pkg_path.as_ref().join("metadata.json")
 }
 
 /**
@@ -891,7 +899,7 @@ where
     }
 
     // Ok, now try other extensions.
-    for &ext in consts::SEARCH_EXTS {
+    for ext in ["ers", "rs"] {
         let path = path.with_extension(ext);
         if let Ok(file) = fs::File::open(&path) {
             return Some((path, file));
@@ -1000,7 +1008,7 @@ impl Input {
                 // Hash the path to the script.
                 hasher.update(&*path.to_string_lossy());
                 let mut digest = format!("{:x}", hasher.finalize());
-                digest.truncate(consts::ID_DIGEST_LEN_MAX);
+                digest.truncate(ID_DIGEST_LEN_MAX);
 
                 let mut id = OsString::new();
                 id.push(&*digest);
@@ -1015,7 +1023,7 @@ impl Input {
 
                 hasher.update(content);
                 let mut digest = format!("{:x}", hasher.finalize());
-                digest.truncate(consts::ID_DIGEST_LEN_MAX);
+                digest.truncate(ID_DIGEST_LEN_MAX);
 
                 let mut id = OsString::new();
                 id.push(&*digest);
@@ -1024,6 +1032,13 @@ impl Input {
         }
     }
 }
+
+/**
+When generating a package's unique ID, how many hex nibbles of the digest should be used *at most*?
+
+The largest meaningful value is `40`.
+*/
+pub const ID_DIGEST_LEN_MAX: usize = 24;
 
 /**
 Shorthand for hashing a string.
