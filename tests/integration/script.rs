@@ -90,7 +90,6 @@ fn test_script_default_backtrace() {
             "...
 thread 'main' panicked at 'a pink elephant!', script-default-backtrace.rs:6:5
 stack backtrace:
-   0: std::panicking::begin_panic
 ...",
         );
 
