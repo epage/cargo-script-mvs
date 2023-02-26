@@ -5,13 +5,12 @@ description = "Command-line tool to run Rust \"scripts\" which can make use of c
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/epage/cargo-script-mvs"
 homepage = "https://rust-script.org"
-documentation = "https://rust-script.org"
-readme = "README.md"
+documentation = "https://github.com/epage/cargo-script-mvs/blob/main/docs/README.md"
+readme = "docs/README.md"
 categories = ["command-line-utilities", "development-tools"]
 keywords = ["cargo", "script"]
 edition = "2018"
 rust-version = "1.64.0"  # MSRV
-authors = ["Fredrik Fornwall <fredrik@fornwall.net>"]
 include = [
   "build.rs",
   "src/**/*",

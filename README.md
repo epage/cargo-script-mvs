@@ -1,4 +1,3 @@
-
 [![CI](https://github.com/fornwall/rust-script/workflows/CI/badge.svg)](https://github.com/fornwall/rust-script/actions?query=workflow%3ACI)
 [![Crates.io](https://img.shields.io/crates/v/rust-script.svg)](https://crates.io/crates/rust-script)
 
@@ -31,7 +30,7 @@ A random number: 9240261453149857564
 
 Rust version 1.54 or newer required.
 
-See the [documentation at rust-script.org](https://rust-script.org).
+See the [documentation](docs/README.md)
 
 ## Related projects
 - [cargo-script](https://github.com/DanielKeep/cargo-script) - the unmaintained project that `rust-script` was forked from.
