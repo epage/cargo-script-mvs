@@ -1,18 +1,17 @@
-/*!
-This module contains code related to template support.
-*/
-use crate::consts;
-use crate::error::{MainError, MainResult};
-use crate::platform;
-use regex::Regex;
+///  Template support.
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs;
 
+use anyhow::Context as _;
+use regex::Regex;
+
+use crate::dirs;
+
 static RE_SUB: once_cell::sync::Lazy<Regex> =
     once_cell::sync::Lazy::new(|| Regex::new(r#"#\{([A-Za-z_][A-Za-z0-9_]*)}"#).unwrap());
 
-pub fn expand(src: &str, subs: &HashMap<&str, &str>) -> MainResult<String> {
+pub fn expand(src: &str, subs: &HashMap<&str, &str>) -> anyhow::Result<String> {
     // The estimate of final size is the sum of the size of all the input.
     let sub_size = subs.iter().map(|(_, v)| v.len()).sum::<usize>();
     let est_size = src.len() + sub_size;
@@ -35,9 +34,7 @@ pub fn expand(src: &str, subs: &HashMap<&str, &str>) -> MainResult<String> {
         match subs.get(sub_name) {
             Some(s) => result.push_str(s),
             None => {
-                return Err(MainError::OtherOwned(format!(
-                    "substitution `{sub_name}` in template is unknown"
-                )))
+                anyhow::bail!("substitution `{sub_name}` in template is unknown")
             }
         }
     }
@@ -45,25 +42,19 @@ pub fn expand(src: &str, subs: &HashMap<&str, &str>) -> MainResult<String> {
     Ok(result)
 }
 
-/**
-Attempts to locate and load the contents of the specified template.
-*/
-pub fn get_template(name: &str) -> MainResult<Cow<'static, str>> {
+/// Attempts to locate and load the contents of the specified template.
+pub fn get_template(name: &str) -> anyhow::Result<Cow<'static, str>> {
     use std::io::Read;
 
-    let base = platform::templates_dir()?;
+    let base = dirs::templates_dir()?;
 
     let file = fs::File::open(base.join(format!("{name}.rs")))
-        .map_err(MainError::from)
-        .map_err(|e| {
-            MainError::Tag(
-                format!(
-                    "template file `{}.rs` does not exist in {}",
-                    name,
-                    base.display()
-                )
-                .into(),
-                Box::new(e),
+        .map_err(anyhow::Error::from)
+        .with_context(|| {
+            format!(
+                "template file `{}.rs` does not exist in {}",
+                name,
+                base.display()
             )
         });
 
@@ -83,18 +74,53 @@ pub fn get_template(name: &str) -> MainResult<Cow<'static, str>> {
 
 fn builtin_template(name: &str) -> Option<&'static str> {
     Some(match name {
-        "expr" => consts::EXPR_TEMPLATE,
-        "file" => consts::FILE_TEMPLATE,
-        "loop" => consts::LOOP_TEMPLATE,
-        "loop-count" => consts::LOOP_COUNT_TEMPLATE,
+        "expr" => EXPR_TEMPLATE,
+        "file" => FILE_TEMPLATE,
         _ => return None,
     })
 }
 
-pub fn list() -> MainResult<()> {
+/// The template used for script file inputs.
+pub const FILE_TEMPLATE: &str = r#"#{script}"#;
+
+/// The template used for `--expr` input.
+pub const EXPR_TEMPLATE: &str = r#"
+use std::any::{Any, TypeId};
+
+fn main() {
+    let exit_code = match try_main() {
+        Ok(()) => None,
+        Err(e) => {
+            use std::io::{self, Write};
+            let _ = writeln!(io::stderr(), "Error: {}", e);
+            Some(1)
+        },
+    };
+    if let Some(exit_code) = exit_code {
+        std::process::exit(exit_code);
+    }
+}
+
+fn try_main() -> Result<(), Box<dyn std::error::Error>> {
+    fn _rust_script_is_empty_tuple<T: ?Sized + Any>(_s: &T) -> bool {
+        TypeId::of::<()>() == TypeId::of::<T>()
+    }
+    match {#{script}} {
+        __rust_script_expr if !_rust_script_is_empty_tuple(&__rust_script_expr) => println!("{:?}", __rust_script_expr),
+        _ => {}
+    }
+    Ok(())
+}
+"#;
+
+// Regarding the loop templates: what I *want* is for the result of the closure to be printed to standard output *only* if it's not `()`.
+//
+// TODO: Merge the `LOOP_*` templates so there isn't duplicated code.  It's icky.
+
+pub fn list() -> anyhow::Result<()> {
     use std::ffi::OsStr;
 
-    let t_path = platform::templates_dir()?;
+    let t_path = dirs::templates_dir()?;
 
     if !t_path.exists() {
         fs::create_dir_all(&t_path)?;
@@ -103,19 +129,17 @@ pub fn list() -> MainResult<()> {
     println!("Listing templates in {}", t_path.display());
 
     if !t_path.exists() {
-        return Err(format!(
+        anyhow::bail!(
             "cannot list template directory `{}`: it does not exist",
             t_path.display()
         )
-        .into());
     }
 
     if !t_path.is_dir() {
-        return Err(format!(
+        anyhow::bail!(
             "cannot list template directory `{}`: it is not a directory",
             t_path.display()
         )
-        .into());
     }
 
     for entry in fs::read_dir(&t_path)? {
