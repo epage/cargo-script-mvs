@@ -43,7 +43,7 @@ pub fn split_input(input: &Input, input_id: &OsString) -> MainResult<(String, St
 
     let template_buf;
     let (part_mani, source, template) = match input {
-        Input::File(_, _, content, _) => {
+        Input::File(_, _, content) => {
             let (manifest, source) =
                 find_embedded_manifest(content).unwrap_or((Manifest::Toml(""), content));
 
@@ -105,7 +105,7 @@ fn test_split_input() {
 
     let f = |c: &str| {
         let dummy_path: std::path::PathBuf = "p".into();
-        Input::File("n".into(), dummy_path, c.into(), None)
+        Input::File("n".into(), dummy_path, c.into())
     };
 
     macro_rules! r {

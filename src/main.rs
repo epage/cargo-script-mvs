@@ -402,11 +402,9 @@ fn try_main() -> MainResult<i32> {
             let mut body = String::new();
             file.read_to_string(&mut body)?;
 
-            let mtime = file.metadata().and_then(|m| m.modified()).ok();
-
             script_path = std::env::current_dir()?.join(path);
 
-            Input::File(script_name, script_path, body, mtime)
+            Input::File(script_name, script_path, body)
         }
         (expr, true) => {
             let expr = expr
@@ -604,7 +602,7 @@ fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> MainResult<()> {
 
     let meta = meta;
 
-    // Write out metadata *now*.  Remember that we check the timestamp in the metadata, *not* on the executable.
+    // Write out metadata *now*.  Remember that we check the timestamp on the metadata, *not* on the executable.
     if action.emit_metadata {
         info!("emitting metadata...");
         write_pkg_metadata(pkg_path, &meta)?;
@@ -680,13 +678,10 @@ impl InputAction {
 ///
 /// 1. It records everything necessary for compilation and execution of a package.
 /// 2. It records everything that must be exactly the same in order for a cached executable to still be valid, in addition to the content hash.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct PackageMetadata {
     /// Path to the script file.
     path: Option<String>,
-
-    /// Last-modified timestamp for script file.
-    modified: Option<std::time::SystemTime>,
 
     /// Template used.
     template: Option<String>,
@@ -731,11 +726,9 @@ fn decide_action_for(input: &Input, args: &Args) -> MainResult<InputAction> {
     };
 
     let input_meta = {
-        let (path, mtime, template) = match input {
-            Input::File(_, path, _, mtime) => {
-                (Some(path.to_string_lossy().into_owned()), *mtime, None)
-            }
-            Input::Expr(_, template) => (None, None, template.clone()),
+        let (path, template) = match input {
+            Input::File(_, path, _) => (Some(path.to_string_lossy().into_owned()), None),
+            Input::Expr(_, template) => (None, template.clone()),
         };
         let features = if args.features.is_empty() {
             None
@@ -744,7 +737,6 @@ fn decide_action_for(input: &Input, args: &Args) -> MainResult<InputAction> {
         };
         PackageMetadata {
             path,
-            modified: mtime,
             template,
             debug,
             features,
@@ -886,7 +878,7 @@ pub enum Input {
     /// The input is a script file.
     ///
     /// The tuple members are: the name, absolute path, script contents, last modified time.
-    File(String, PathBuf, String, Option<std::time::SystemTime>),
+    File(String, PathBuf, String),
 
     /// The input is an expression.
     ///
@@ -898,7 +890,7 @@ impl Input {
     /// Return the path to the script, if it has one.
     pub fn path(&self) -> Option<&Path> {
         match self {
-            Self::File(_, path, _, _) => Some(path.as_path()),
+            Self::File(_, path, _) => Some(path.as_path()),
             Self::Expr(..) => None,
         }
     }
@@ -908,7 +900,7 @@ impl Input {
     /// Currently, nothing is done to ensure this, other than hoping *really hard* that we don't get fed some excessively bizarre input filename.
     pub fn safe_name(&self) -> &str {
         match self {
-            Self::File(name, _, _, _) => name,
+            Self::File(name, _, _) => name,
             Self::Expr(..) => "expr",
         }
     }
@@ -943,7 +935,7 @@ impl Input {
     /// Base directory for resolving relative paths.
     pub fn base_path(&self) -> PathBuf {
         match self {
-            Self::File(_, path, _, _) => path
+            Self::File(_, path, _) => path
                 .parent()
                 .expect("couldn't get parent directory for file input base path")
                 .into(),
@@ -958,7 +950,7 @@ impl Input {
     // will be generated.
     pub fn compute_id(&self) -> OsString {
         match self {
-            Self::File(_, path, _, _) => {
+            Self::File(_, path, _) => {
                 let mut hasher = Sha1::new();
 
                 // Hash the path to the script.
@@ -1095,18 +1087,8 @@ fn cargo(
 
 #[test]
 fn test_package_name() {
-    let input = Input::File(
-        "Script".into(),
-        Path::new("path").into(),
-        "script".into(),
-        None,
-    );
+    let input = Input::File("Script".into(), Path::new("path").into(), "script".into());
     assert_eq!("script", input.package_name());
-    let input = Input::File(
-        "1Script".into(),
-        Path::new("path").into(),
-        "script".into(),
-        None,
-    );
+    let input = Input::File("1Script".into(), Path::new("path").into(), "script".into());
     assert_eq!("_1script", input.package_name());
 }
