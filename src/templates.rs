@@ -1,10 +1,12 @@
 ///  Template support.
-use crate::platform;
-use anyhow::Context as _;
-use regex::Regex;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs;
+
+use anyhow::Context as _;
+use regex::Regex;
+
+use crate::platform;
 
 static RE_SUB: once_cell::sync::Lazy<Regex> =
     once_cell::sync::Lazy::new(|| Regex::new(r#"#\{([A-Za-z_][A-Za-z0-9_]*)}"#).unwrap());

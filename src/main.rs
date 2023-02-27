@@ -14,15 +14,16 @@ mod file_assoc;
 #[cfg(not(windows))]
 mod file_assoc {}
 
-use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
 use std::fs;
 use std::io::{BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::util::Defer;
+use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
+
+use crate::util::Defer;
 
 #[derive(Debug)]
 struct Args {

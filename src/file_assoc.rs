@@ -1,8 +1,8 @@
 //! Set up file associations on Windows
 
-use crate::error::MainResult;
 use std::env;
 use std::io;
+
 use winreg::{enums as wre, RegKey};
 
 pub fn install_file_association() -> anyhow::Result<()> {

@@ -1,14 +1,13 @@
 //! Extracting the manifest from a script file.
-use regex;
-
-use self::regex::Regex;
-use anyhow::Context as _;
 use std::collections::HashMap;
+use std::ffi::OsString;
 use std::path::Path;
+
+use anyhow::Context as _;
+use regex::Regex;
 
 use crate::templates;
 use crate::Input;
-use std::ffi::OsString;
 
 static RE_MARGIN: once_cell::sync::Lazy<Regex> =
     once_cell::sync::Lazy::new(|| Regex::new(r"^\s*\*( |$)").unwrap());
