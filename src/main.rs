@@ -370,7 +370,7 @@ fn try_main() -> MainResult<i32> {
     }
 
     if args.clear_cache {
-        clean_cache(0)?;
+        clean_cache()?;
         if args.script.is_none() {
             println!("rust-script cache cleared.");
             return Ok(0);
@@ -440,7 +440,7 @@ fn try_main() -> MainResult<i32> {
         let cc = args.clear_cache;
         Defer::<_, MainError>::new(move || {
             if !cc {
-                clean_cache(MAX_CACHE_AGE_MS)?;
+                gc_cache(MAX_CACHE_AGE)?;
             }
             Ok(())
         })
@@ -460,27 +460,29 @@ fn try_main() -> MainResult<i32> {
 }
 
 /// How old can stuff in the cache be before we automatically clear it out?
-///
-/// Measured in milliseconds.
-pub const MAX_CACHE_AGE_MS: u128 = 7 * 24 * 60 * 60 * 1000;
+pub const MAX_CACHE_AGE: std::time::Duration = std::time::Duration::from_secs(7 * 24 * 60 * 60);
 
-/// Clean up the cache folder.
-///
-/// Looks for all folders whose metadata says they were created at least `max_age` in the past and kills them dead.
-fn clean_cache(max_age: u128) -> MainResult<()> {
-    info!("cleaning cache with max_age: {:?}", max_age);
+/// Empty the cache
+fn clean_cache() -> MainResult<()> {
+    info!("cleaning cache");
 
-    if max_age == 0 {
-        info!("max_age is 0, clearing binary cache...");
-        let cache_dir = platform::binary_cache_path()?;
-        if ALLOW_AUTO_REMOVE && cache_dir.exists() {
-            if let Err(err) = fs::remove_dir_all(&cache_dir) {
-                error!("failed to remove binary cache {:?}: {}", cache_dir, err);
-            }
+    let cache_dir = platform::binary_cache_path()?;
+    if ALLOW_AUTO_REMOVE && cache_dir.exists() {
+        if let Err(err) = fs::remove_dir_all(&cache_dir) {
+            error!("failed to remove binary cache {:?}: {}", cache_dir, err);
         }
     }
+    Ok(())
+}
 
-    let cutoff = platform::current_time() - max_age;
+/// Clear old entries
+///
+/// Looks for all folders whose metadata says they were created at least `max_age` in the past and
+/// kills them dead.
+fn gc_cache(max_age: std::time::Duration) -> MainResult<()> {
+    info!("cleaning cache with max_age: {:?}", max_age);
+
+    let cutoff = std::time::SystemTime::now() - max_age;
     info!("cutoff:     {:>20?} ms", cutoff);
 
     let cache_dir = platform::generated_projects_cache_path()?;
@@ -514,11 +516,15 @@ fn clean_cache(max_age: u128) -> MainResult<()> {
                             return true;
                         }
                     };
-                    platform::file_last_modified(&meta_file)
+                    meta_file.metadata().and_then(|m| m.modified()).ok()
                 };
-                info!("meta_mtime: {:>20?} ms", meta_mtime);
+                debug!("meta_mtime: {:>20?} ms", meta_mtime);
 
-                meta_mtime <= cutoff
+                if let Some(meta_mtime) = meta_mtime {
+                    meta_mtime <= cutoff
+                } else {
+                    true
+                }
             };
 
             if remove_dir() {
