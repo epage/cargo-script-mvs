@@ -92,14 +92,14 @@ impl BuildKind {
 
 fn parse_args() -> MainResult<Args> {
     use clap::{Arg, Command};
-    let about = r#"Compiles and runs a Rust script."#;
+    let about = r#"Compiles and runs a Rust script"#;
 
     let app = Command::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .about(about)
         .arg(
             Arg::new("script")
-                .help("Script file or expression to execute.")
+                .help("Script file or expression to execute")
                 .value_parser(clap::value_parser!(OsString))
                 .required_unless_present_any(if cfg!(windows) {
                     vec![
@@ -125,7 +125,7 @@ fn parse_args() -> MainResult<Args> {
         )
         .arg(
             Arg::new("expr")
-                .help("Execute <script> as a literal expression and display the result.")
+                .help("Execute <script> as a literal expression and display the result")
                 .long("expr")
                 .short('e')
                 .action(clap::ArgAction::SetTrue)
@@ -134,7 +134,7 @@ fn parse_args() -> MainResult<Args> {
         // Options that impact the script being executed.
         .arg(
             Arg::new("cargo-output")
-                .help("Show output from cargo when building.")
+                .help("Show output from cargo when building")
                 .short('o')
                 .long("cargo-output")
                 .action(clap::ArgAction::SetTrue)
@@ -143,7 +143,7 @@ fn parse_args() -> MainResult<Args> {
         // Set the default debug variable to false
         .arg(
             Arg::new("release")
-                .help("Build a release executable, an optimised one.")
+                .help("Build a release executable, an optimised one")
                 .short('r')
                 .long("release")
                 .action(clap::ArgAction::SetTrue)
@@ -151,7 +151,7 @@ fn parse_args() -> MainResult<Args> {
         )
         .arg(
             Arg::new("features")
-                .help("Cargo features to pass when building and running.")
+                .help("Cargo features to pass when building and running")
                 .short('F')
                 .long("features")
                 .action(clap::ArgAction::Append),
@@ -159,20 +159,20 @@ fn parse_args() -> MainResult<Args> {
         // Options that change how rust-script itself behaves, and don't alter what the script will do.
         .arg(
             Arg::new("clear-cache")
-                .help("Clears out the script cache.")
+                .help("Clears out the script cache")
                 .long("clear-cache")
                 .action(clap::ArgAction::SetTrue),
         )
         .arg(
             Arg::new("force")
-                .help("Force the script to be rebuilt.")
+                .help("Force the script to be rebuilt")
                 .long("force")
                 .action(clap::ArgAction::SetTrue)
                 .requires("script"),
         )
         .arg(
             Arg::new("pkg_path")
-                .help("Specify where to place the generated Cargo package.")
+                .help("Specify where to place the generated Cargo package")
                 .long("pkg-path")
                 .value_parser(clap::value_parser!(PathBuf))
                 .requires("script")
@@ -180,28 +180,28 @@ fn parse_args() -> MainResult<Args> {
         )
         .arg(
             Arg::new("test")
-                .help("Compile and run tests.")
+                .help("Compile and run tests")
                 .long("test")
                 .action(clap::ArgAction::SetTrue)
                 .conflicts_with_all(["bench", "force"]),
         )
         .arg(
             Arg::new("bench")
-                .help("Compile and run benchmarks. Requires a nightly toolchain.")
+                .help("Compile and run benchmarks. Requires a nightly toolchain")
                 .long("bench")
                 .action(clap::ArgAction::SetTrue)
                 .conflicts_with_all(["test", "force"]),
         )
         .arg(
             Arg::new("template")
-                .help("Specify a template to use for expression scripts.")
+                .help("Specify a template to use for expression scripts")
                 .long("template")
                 .short('t')
                 .requires("expr"),
         )
         .arg(
             Arg::new("toolchain-version")
-                .help("Build the script using the given toolchain version.")
+                .help("Build the script using the given toolchain version")
                 .long("toolchain-version")
                 // "channel"
                 .short('c')
@@ -210,7 +210,7 @@ fn parse_args() -> MainResult<Args> {
         )
         .arg(
             Arg::new("list-templates")
-                .help("List the available templates.")
+                .help("List the available templates")
                 .long("list-templates")
                 .action(clap::ArgAction::SetTrue),
         )
@@ -228,13 +228,13 @@ fn parse_args() -> MainResult<Args> {
     let app = app
         .arg(
             Arg::new("install-file-association")
-                .help("Install a file association so that rust-script executes .ers files.")
+                .help("Install a file association so that rust-script executes .ers files")
                 .long("install-file-association")
                 .action(clap::ArgAction::SetTrue),
         )
         .arg(
             Arg::new("uninstall-file-association")
-                .help("Uninstall the file association that makes rust-script execute .ers files.")
+                .help("Uninstall the file association that makes rust-script execute .ers files")
                 .long("uninstall-file-association")
                 .action(clap::ArgAction::SetTrue),
         )
