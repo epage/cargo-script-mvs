@@ -2,8 +2,6 @@
 
 use std::path::PathBuf;
 
-pub use self::inner::force_cargo_color;
-
 #[cfg(not(test))]
 pub fn cache_dir() -> anyhow::Result<PathBuf> {
     if let Some(path) = std::env::var_os("RUST_SCRIPT_CACHE_PATH") {
@@ -40,28 +38,4 @@ pub fn templates_dir() -> anyhow::Result<PathBuf> {
     dirs_next::data_local_dir()
         .map(|dir| dir.join(env!("CARGO_PKG_NAME")).join("templates"))
         .ok_or_else(|| anyhow::format_err!("Cannot get cache directory"))
-}
-
-#[cfg(unix)]
-mod inner {
-    pub use super::*;
-
-    /// Returns `true` if `rust-script` should force Cargo to use coloured output.
-    ///
-    /// This depends on whether `rust-script`'s STDERR is connected to a TTY or not.
-    pub fn force_cargo_color() -> bool {
-        atty::is(atty::Stream::Stderr)
-    }
-}
-
-#[cfg(windows)]
-pub mod inner {
-    pub use super::*;
-
-    /// Returns `true` if `rust-script` should force Cargo to use coloured output.
-    ///
-    /// Always returns `false` on Windows because colour is communicated over a side-channel.
-    pub fn force_cargo_color() -> bool {
-        false
-    }
 }

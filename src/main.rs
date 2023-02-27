@@ -1055,7 +1055,7 @@ fn cargo(
 
     cmd.arg("--manifest-path").arg(manifest);
 
-    if platform::force_cargo_color() {
+    if force_cargo_color() {
         cmd.arg("--color").arg("always");
     }
 
@@ -1078,6 +1078,20 @@ fn cargo(
     }
 
     Ok(cmd)
+}
+
+/// Returns `true` if `rust-script` should force Cargo to use coloured output.
+///
+/// This depends on whether `rust-script`'s STDERR is connected to a TTY or not.
+pub fn force_cargo_color() -> bool {
+    #[cfg(unix)]
+    {
+        atty::is(atty::Stream::Stderr)
+    }
+    #[cfg(windows)]
+    {
+        false
+    }
 }
 
 #[test]
