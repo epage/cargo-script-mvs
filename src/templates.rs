@@ -1,6 +1,4 @@
-/*!
-This module contains code related to template support.
-*/
+///  Template support.
 use crate::error::{MainError, MainResult};
 use crate::platform;
 use regex::Regex;
@@ -44,9 +42,7 @@ pub fn expand(src: &str, subs: &HashMap<&str, &str>) -> MainResult<String> {
     Ok(result)
 }
 
-/**
-Attempts to locate and load the contents of the specified template.
-*/
+/// Attempts to locate and load the contents of the specified template.
 pub fn get_template(name: &str) -> MainResult<Cow<'static, str>> {
     use std::io::Read;
 
@@ -123,11 +119,9 @@ fn try_main() -> Result<(), Box<dyn std::error::Error>> {
 }
 "#;
 
-/*
-Regarding the loop templates: what I *want* is for the result of the closure to be printed to standard output *only* if it's not `()`.
-
-* TODO: Merge the `LOOP_*` templates so there isn't duplicated code.  It's icky.
-*/
+// Regarding the loop templates: what I *want* is for the result of the closure to be printed to standard output *only* if it's not `()`.
+//
+// TODO: Merge the `LOOP_*` templates so there isn't duplicated code.  It's icky.
 
 /// The template used for `--loop` input, assuming no `--count` flag is also given.
 pub const LOOP_TEMPLATE: &str = r#"

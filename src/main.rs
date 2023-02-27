@@ -1,8 +1,6 @@
 #![forbid(unsafe_code)]
 
-/**
-If this is set to `false`, then code that automatically deletes stuff *won't*.
-*/
+/// If this is set to `false`, then code that automatically deletes stuff *won't*.
 const ALLOW_AUTO_REMOVE: bool = true;
 
 mod error;
@@ -133,9 +131,7 @@ fn parse_args() -> MainResult<Args> {
                 .action(clap::ArgAction::SetTrue)
                 .requires("script"),
         )
-        /*
-        Options that impact the script being executed.
-        */
+        // Options that impact the script being executed.
         .arg(
             Arg::new("cargo-output")
                 .help("Show output from cargo when building.")
@@ -160,9 +156,7 @@ fn parse_args() -> MainResult<Args> {
                 .long("features")
                 .action(clap::ArgAction::Append),
         )
-        /*
-        Options that change how rust-script itself behaves, and don't alter what the script will do.
-        */
+        // Options that change how rust-script itself behaves, and don't alter what the script will do.
         .arg(
             Arg::new("clear-cache")
                 .help("Clears out the script cache.")
@@ -465,20 +459,14 @@ fn try_main() -> MainResult<i32> {
     Ok(exit_code)
 }
 
-/**
-How old can stuff in the cache be before we automatically clear it out?
-
-Measured in milliseconds.
-*/
-// It's been *one week* since you looked at me,
-// cocked your head to the side and said "I'm angry."
+/// How old can stuff in the cache be before we automatically clear it out?
+///
+/// Measured in milliseconds.
 pub const MAX_CACHE_AGE_MS: u128 = 7 * 24 * 60 * 60 * 1000;
 
-/**
-Clean up the cache folder.
-
-Looks for all folders whose metadata says they were created at least `max_age` in the past and kills them dead.
-*/
+/// Clean up the cache folder.
+///
+/// Looks for all folders whose metadata says they were created at least `max_age` in the past and kills them dead.
 fn clean_cache(max_age: u128) -> MainResult<()> {
     info!("cleaning cache with max_age: {:?}", max_age);
 
@@ -550,11 +538,9 @@ fn clean_cache(max_age: u128) -> MainResult<()> {
     Ok(())
 }
 
-/**
-Generate and compile a package from the input.
-
-Why take `PackageMetadata`?  To ensure that any information we need to depend on for compilation *first* passes through `decide_action_for` *and* is less likely to not be serialised with the rest of the metadata.
-*/
+/// Generate and compile a package from the input.
+///
+/// Why take `PackageMetadata`?  To ensure that any information we need to depend on for compilation *first* passes through `decide_action_for` *and* is less likely to not be serialised with the rest of the metadata.
 fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> MainResult<()> {
     let pkg_path = &action.pkg_path;
     let meta = &action.metadata;
@@ -624,19 +610,15 @@ fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> MainResult<()> {
     Ok(())
 }
 
-/**
-This represents what to do with the input provided by the user.
-*/
+/// This represents what to do with the input provided by the user.
 #[derive(Debug)]
 struct InputAction {
     /// Always show cargo output?
     cargo_output: bool,
 
-    /**
-    Force Cargo to do a recompile, even if it thinks it doesn't have to.
-
-    `compile` must be `true` for this to have any effect.
-    */
+    /// Force Cargo to do a recompile, even if it thinks it doesn't have to.
+    ///
+    /// `compile` must be `true` for this to have any effect.
     force_compile: bool,
 
     /// Emit a metadata file?
@@ -645,18 +627,14 @@ struct InputAction {
     /// Directory where the package should live.
     pkg_path: PathBuf,
 
-    /**
-    Is the package directory in the cache?
-
-    Currently, this can be inferred from `emit_metadata`, but there's no *intrinsic* reason they should be tied together.
-    */
+    /// Is the package directory in the cache?
+    ///
+    /// Currently, this can be inferred from `emit_metadata`, but there's no *intrinsic* reason they should be tied together.
     using_cache: bool,
 
-    /**
-    Which toolchain the script should be built with.
-
-    `None` indicates that the script should be built with a stable toolchain.
-    */
+    /// Which toolchain the script should be built with.
+    ///
+    /// `None` indicates that the script should be built with a stable toolchain.
     toolchain_version: Option<String>,
 
     /// The package metadata structure for the current invocation.
@@ -692,12 +670,10 @@ impl InputAction {
     }
 }
 
-/**
-The metadata here serves two purposes:
-
-1. It records everything necessary for compilation and execution of a package.
-2. It records everything that must be exactly the same in order for a cached executable to still be valid, in addition to the content hash.
-*/
+/// The metadata here serves two purposes:
+///
+/// 1. It records everything necessary for compilation and execution of a package.
+/// 2. It records everything that must be exactly the same in order for a cached executable to still be valid, in addition to the content hash.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 struct PackageMetadata {
     /// Path to the script file.
@@ -722,9 +698,7 @@ struct PackageMetadata {
     script_hash: String,
 }
 
-/**
-For the given input, this constructs the package metadata and checks the cache to see what should be done.
-*/
+/// For the given input, this constructs the package metadata and checks the cache to see what should be done.
 fn decide_action_for(input: &Input, args: &Args) -> MainResult<InputAction> {
     let input_id = input.compute_id();
     info!("id: {:?}", input_id);
@@ -830,9 +804,7 @@ fn decide_action_for(input: &Input, args: &Args) -> MainResult<InputAction> {
     Ok(action)
 }
 
-/**
-Load the package metadata, given the path to the package's cache folder.
-*/
+/// Load the package metadata, given the path to the package's cache folder.
 fn get_pkg_metadata<P>(pkg_path: P) -> MainResult<PackageMetadata>
 where
     P: AsRef<Path>,
@@ -851,9 +823,7 @@ where
     Ok(meta)
 }
 
-/**
-Work out the path to a package's metadata file.
-*/
+/// Work out the path to a package's metadata file.
 fn get_pkg_metadata_path<P>(pkg_path: P) -> PathBuf
 where
     P: AsRef<Path>,
@@ -861,9 +831,7 @@ where
     pkg_path.as_ref().join("metadata.json")
 }
 
-/**
-Save the package metadata, given the path to the package's cache folder.
-*/
+/// Save the package metadata, given the path to the package's cache folder.
 fn write_pkg_metadata<P>(pkg_path: P, meta: &PackageMetadata) -> MainResult<()>
 where
     P: AsRef<Path>,
@@ -879,9 +847,7 @@ where
     Ok(())
 }
 
-/**
-Attempts to locate the script specified by the given path.  If the path as-given doesn't yield anything, it will try adding file extensions.
-*/
+/// Attempts to locate the script specified by the given path.  If the path as-given doesn't yield anything, it will try adding file extensions.
 fn find_script<P>(path: P) -> Option<(PathBuf, fs::File)>
 where
     P: AsRef<Path>,
@@ -910,30 +876,22 @@ where
     None
 }
 
-/**
-Represents an input source for a script.
-*/
+/// Represents an input source for a script.
 #[derive(Clone, Debug)]
 pub enum Input {
-    /**
-    The input is a script file.
-
-    The tuple members are: the name, absolute path, script contents, last modified time.
-    */
+    /// The input is a script file.
+    ///
+    /// The tuple members are: the name, absolute path, script contents, last modified time.
     File(String, PathBuf, String, u128),
 
-    /**
-    The input is an expression.
-
-    The tuple member is: the script contents, and the template (if any).
-    */
+    /// The input is an expression.
+    ///
+    /// The tuple member is: the script contents, and the template (if any).
     Expr(String, Option<String>),
 }
 
 impl Input {
-    /**
-    Return the path to the script, if it has one.
-    */
+    /// Return the path to the script, if it has one.
     pub fn path(&self) -> Option<&Path> {
         match self {
             Self::File(_, path, _, _) => Some(path.as_path()),
@@ -941,11 +899,9 @@ impl Input {
         }
     }
 
-    /**
-    Return the "safe name" for the input.  This should be filename-safe.
-
-    Currently, nothing is done to ensure this, other than hoping *really hard* that we don't get fed some excessively bizarre input filename.
-    */
+    /// Return the "safe name" for the input.  This should be filename-safe.
+    ///
+    /// Currently, nothing is done to ensure this, other than hoping *really hard* that we don't get fed some excessively bizarre input filename.
     pub fn safe_name(&self) -> &str {
         match self {
             Self::File(name, _, _, _) => name,
@@ -953,9 +909,7 @@ impl Input {
         }
     }
 
-    /**
-    Return the package name for the input.  This should be a valid Rust identifier.
-    */
+    /// Return the package name for the input.  This should be a valid Rust identifier.
     pub fn package_name(&self) -> String {
         let name = self.safe_name();
         let mut r = String::with_capacity(name.len());
@@ -982,9 +936,7 @@ impl Input {
         r
     }
 
-    /**
-    Base directory for resolving relative paths.
-    */
+    /// Base directory for resolving relative paths.
     pub fn base_path(&self) -> PathBuf {
         match self {
             Self::File(_, path, _, _) => path
@@ -1033,16 +985,12 @@ impl Input {
     }
 }
 
-/**
-When generating a package's unique ID, how many hex nibbles of the digest should be used *at most*?
-
-The largest meaningful value is `40`.
-*/
+/// When generating a package's unique ID, how many hex nibbles of the digest should be used *at most*?
+///
+/// The largest meaningful value is `40`.
 pub const ID_DIGEST_LEN_MAX: usize = 24;
 
-/**
-Shorthand for hashing a string.
-*/
+/// Shorthand for hashing a string.
 fn hash_str(s: &str) -> String {
     let mut hasher = Sha1::new();
     hasher.update(s);
@@ -1054,9 +1002,7 @@ enum FileOverwrite {
     Changed { new_hash: String },
 }
 
-/**
-Overwrite a file if and only if the contents have changed.
-*/
+/// Overwrite a file if and only if the contents have changed.
 fn overwrite_file<P>(path: P, content: &str, hash: Option<&str>) -> MainResult<FileOverwrite>
 where
     P: AsRef<Path>,
@@ -1080,9 +1026,7 @@ where
     Ok(FileOverwrite::Changed { new_hash })
 }
 
-/**
-Constructs a Cargo command that runs on the script package.
-*/
+/// Constructs a Cargo command that runs on the script package.
 fn cargo(
     cmd_name: &str,
     manifest: &str,

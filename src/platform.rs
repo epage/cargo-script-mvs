@@ -1,6 +1,4 @@
-/*!
-This module is for platform-specific stuff.
-*/
+//! Platform-specific stuff.
 
 pub use self::inner::force_cargo_color;
 
@@ -10,7 +8,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-// Last-modified time of a file, in milliseconds since the UNIX epoch.
+/// Last-modified time of a file, in milliseconds since the UNIX epoch.
 pub fn file_last_modified(file: &fs::File) -> u128 {
     file.metadata()
         .and_then(|md| {
@@ -20,7 +18,7 @@ pub fn file_last_modified(file: &fs::File) -> u128 {
         .unwrap_or(0)
 }
 
-// Current system time, in milliseconds since the UNIX epoch.
+/// Current system time, in milliseconds since the UNIX epoch.
 pub fn current_time() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -70,11 +68,9 @@ pub fn templates_dir() -> Result<PathBuf, MainError> {
 mod inner {
     pub use super::*;
 
-    /**
-    Returns `true` if `rust-script` should force Cargo to use coloured output.
-
-    This depends on whether `rust-script`'s STDERR is connected to a TTY or not.
-    */
+    /// Returns `true` if `rust-script` should force Cargo to use coloured output.
+    ///
+    /// This depends on whether `rust-script`'s STDERR is connected to a TTY or not.
     pub fn force_cargo_color() -> bool {
         atty::is(atty::Stream::Stderr)
     }
@@ -84,11 +80,9 @@ mod inner {
 pub mod inner {
     pub use super::*;
 
-    /**
-    Returns `true` if `rust-script` should force Cargo to use coloured output.
-
-    Always returns `false` on Windows because colour is communicated over a side-channel.
-    */
+    /// Returns `true` if `rust-script` should force Cargo to use coloured output.
+    ///
+    /// Always returns `false` on Windows because colour is communicated over a side-channel.
     pub fn force_cargo_color() -> bool {
         false
     }

@@ -1,6 +1,4 @@
-/*!
-This module is concerned with how `rust-script` extracts the manifest from a script file.
-*/
+//! Extracting the manifest from a script file.
 use regex;
 
 use self::regex::Regex;
@@ -31,11 +29,9 @@ static RE_CRATE_COMMENT: once_cell::sync::Lazy<Regex> = once_cell::sync::Lazy::n
     .unwrap()
 });
 
-/**
-Splits input into a complete Cargo manifest and unadultered Rust source.
-
-Unless we have prelude items to inject, in which case it will be *slightly* adulterated.
-*/
+/// Splits input into a complete Cargo manifest and unadultered Rust source.
+///
+/// Unless we have prelude items to inject, in which case it will be *slightly* adulterated.
 pub fn split_input(input: &Input, input_id: &OsString) -> MainResult<(String, String)> {
     fn contains_main_method(line: &str) -> bool {
         let line = line.trim_start();
@@ -221,9 +217,7 @@ fn main() {}
     );
 }
 
-/**
-Returns a slice of the input string with the leading shebang, if there is one, omitted.
-*/
+/// Returns a slice of the input string with the leading shebang, if there is one, omitted.
 fn strip_shebang(s: &str) -> (&str, bool) {
     match RE_SHEBANG.find(s) {
         Some(m) => (&s[m.end()..], true),
@@ -264,9 +258,7 @@ and the rest
     );
 }
 
-/**
-Represents the kind, and content of, an embedded manifest.
-*/
+/// Represents the kind, and content of, an embedded manifest.
 #[derive(Debug, Eq, PartialEq)]
 enum Manifest<'s> {
     /// The manifest is a valid TOML fragment.
@@ -292,11 +284,9 @@ impl<'s> Manifest<'s> {
     }
 }
 
-/**
-Locates a manifest embedded in Rust source.
-
-Returns `Some((manifest, source))` if it finds a manifest, `None` otherwise.
-*/
+/// Locaates a manifest embedded in Rust source.
+///
+/// Returns `Some((manifest, source))` if it finds a manifest, `None` otherwise.
 fn find_embedded_manifest(s: &str) -> Option<(Manifest, &str)> {
     find_code_block_manifest(s)
 }
@@ -484,19 +474,15 @@ fn main() {}
     );
 }
 
-/**
-Locates a "code block manifest" in Rust source.
-*/
+/// Locates a "code block manifest" in Rust source.
 fn find_code_block_manifest(s: &str) -> Option<(Manifest, &str)> {
-    /*
-    This has to happen in a few steps.
-
-    First, we will look for and slice out a contiguous, inner doc comment which must be *the very first thing* in the file.  `#[doc(...)]` attributes *are not supported*.  Multiple single-line comments cannot have any blank lines between them.
-
-    Then, we need to strip off the actual comment markers from the content.  Including indentation removal, and taking out the (optional) leading line markers for block comments.  *sigh*
-
-    Then, we need to take the contents of this doc comment and feed it to a Markdown parser.  We are looking for *the first* fenced code block with a language token of `cargo`.  This is extracted and pasted back together into the manifest.
-    */
+    // This has to happen in a few steps.
+    //
+    // First, we will look for and slice out a contiguous, inner doc comment which must be *the very first thing* in the file.  `#[doc(...)]` attributes *are not supported*.  Multiple single-line comments cannot have any blank lines between them.
+    //
+    // Then, we need to strip off the actual comment markers from the content.  Including indentation removal, and taking out the (optional) leading line markers for block comments.  *sigh*
+    //
+    // Then, we need to take the contents of this doc comment and feed it to a Markdown parser.  We are looking for *the first* fenced code block with a language token of `cargo`.  This is extracted and pasted back together into the manifest.
     let rest = strip_shebang(s).0;
     let start = match RE_CRATE_COMMENT.captures(rest) {
         Some(cap) => match cap.get(3) {
@@ -517,9 +503,7 @@ fn find_code_block_manifest(s: &str) -> Option<(Manifest, &str)> {
     scrape_markdown_manifest(&comment).map(|m| (Manifest::TomlOwned(m), s))
 }
 
-/**
-Extracts the first `Cargo` fenced code block from a chunk of Markdown.
-*/
+/// Extracts the first `Cargo` fenced code block from a chunk of Markdown.
 fn scrape_markdown_manifest(content: &str) -> Option<String> {
     use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag};
 
@@ -647,9 +631,7 @@ dependencies = { explode = true }
     );
 }
 
-/**
-Extracts the contents of a Rust doc comment.
-*/
+/// Extracts the contents of a Rust doc comment.
 fn extract_comment(s: &str) -> MainResult<String> {
     use std::cmp::min;
 
@@ -661,17 +643,15 @@ fn extract_comment(s: &str) -> MainResult<String> {
     }
 
     fn extract_block(s: &str) -> MainResult<String> {
-        /*
-        On every line:
-
-        - update nesting level and detect end-of-comment
-        - if margin is None:
-            - if there appears to be a margin, set margin.
-        - strip off margin marker
-        - update the leading space counter
-        - strip leading space
-        - append content
-        */
+        // On every line:
+        //
+        // - update nesting level and detect end-of-comment
+        // - if margin is None:
+        //     - if there appears to be a margin, set margin.
+        // - strip off margin marker
+        // - update the leading space counter
+        // - strip leading space
+        // - append content
         let mut r = String::new();
 
         let margin_re = &*RE_MARGIN;
@@ -723,13 +703,9 @@ fn extract_comment(s: &str) -> MainResult<String> {
             // Detect and strip leading indentation.
             leading_space = leading_space.or_else(|| space_re.find(line).map(|m| m.end()));
 
-            /*
-            Make sure we have only leading spaces.
-
-            If we see a tab, fall over.  I *would* expand them, but that gets into the question of how *many* spaces to expand them to, and *where* is the tab, because tabs are tab stops and not just N spaces.
-
-            Eurgh.
-            */
+            // Make sure we have only leading spaces.
+            //
+            // If we see a tab, fall over.  I *would* expand them, but that gets into the question of how *many* spaces to expand them to, and *where* is the tab, because tabs are tab stops and not just N spaces.
             n_leading_spaces(line, leading_space.unwrap_or(0))?;
 
             let strip_len = min(leading_space.unwrap_or(0), line.len());
@@ -768,13 +744,9 @@ fn extract_comment(s: &str) -> MainResult<String> {
                     .map(|m| m.end())
             });
 
-            /*
-            Make sure we have only leading spaces.
-
-            If we see a tab, fall over.  I *would* expand them, but that gets into the question of how *many* spaces to expand them to, and *where* is the tab, because tabs are tab stops and not just N spaces.
-
-            Eurgh.
-            */
+            // Make sure we have only leading spaces.
+            //
+            // If we see a tab, fall over.  I *would* expand them, but that gets into the question of how *many* spaces to expand them to, and *where* is the tab, because tabs are tab stops and not just N spaces.
             n_leading_spaces(content, leading_space.unwrap_or(0))?;
 
             let strip_len = min(leading_space.unwrap_or(0), content.len());
@@ -875,9 +847,7 @@ time = "*"
     );
 }
 
-/**
-Generates a default Cargo manifest for the given input.
-*/
+/// Generates a default Cargo manifest for the given input.
 fn default_manifest(input: &Input, input_id: &OsString) -> MainResult<toml::value::Table> {
     let mani_str = {
         let pkg_name = input.package_name();
@@ -896,9 +866,7 @@ fn default_manifest(input: &Input, input_id: &OsString) -> MainResult<toml::valu
     })
 }
 
-/**
-The default manifest used for packages.
-*/
+/// The default manifest used for packages.
 pub const DEFAULT_MANIFEST: &str = r##"
 [package]
 name = "#{name}"
@@ -919,11 +887,9 @@ pub const MANI_BIN_NAME_SUB: &str = "bin_name";
 /// Substitution for the filesystem-safe name of the script.
 pub const MANI_FILE_SUB: &str = "file";
 
-/**
-Given two Cargo manifests, merges the second *into* the first.
-
-Note that the "merge" in this case is relatively simple: only *top-level* tables are actually merged; everything else is just outright replaced.
-*/
+/// Given two Cargo manifests, merges the second *into* the first.
+///
+/// Note that the "merge" in this case is relatively simple: only *top-level* tables are actually merged; everything else is just outright replaced.
 fn merge_manifest(
     mut into_t: toml::value::Table,
     from_t: toml::value::Table,
@@ -962,9 +928,7 @@ fn merge_manifest(
     }
 }
 
-/**
-Given a Cargo manifest, attempts to rewrite relative file paths to absolute ones, allowing the manifest to be relocated.
-*/
+/// Given a Cargo manifest, attempts to rewrite relative file paths to absolute ones, allowing the manifest to be relocated.
 fn fix_manifest_paths(mani: toml::value::Table, base: &Path) -> MainResult<toml::value::Table> {
     // Values that need to be rewritten:
     let paths: &[&[&str]] = &[
@@ -997,9 +961,7 @@ fn fix_manifest_paths(mani: toml::value::Table, base: &Path) -> MainResult<toml:
     }
 }
 
-/**
-Iterates over the specified TOML values via a path specification.
-*/
+/// Iterates over the specified TOML values via a path specification.
 fn iterate_toml_mut_path<F>(
     base: &mut toml::Value,
     path: &[&str],

@@ -1,6 +1,5 @@
-/*!
-This module deals with setting up file associations on Windows
-*/
+//! Set up file associations on Windows
+
 use crate::error::MainResult;
 use std::env;
 use std::io;
