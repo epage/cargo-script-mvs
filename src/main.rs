@@ -1009,7 +1009,7 @@ where
     let dir = path
         .as_ref()
         .parent()
-        .ok_or(anyhow::format_err!("The given path should be a file"))?;
+        .ok_or_else(|| anyhow::format_err!("The given path should be a file"))?;
     let mut temp_file = tempfile::NamedTempFile::new_in(dir)?;
     temp_file.write_all(content.as_bytes())?;
     temp_file.flush()?;

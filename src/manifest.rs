@@ -893,10 +893,12 @@ fn merge_manifest(
                         e.insert(toml::Value::Table(from_t));
                     }
                     toml::map::Entry::Occupied(e) => {
-                        let into_t = as_table_mut(e.into_mut()).ok_or(anyhow::format_err!(
-                            "cannot merge manifests: cannot merge \
+                        let into_t = as_table_mut(e.into_mut()).ok_or_else(|| {
+                            anyhow::format_err!(
+                                "cannot merge manifests: cannot merge \
                                 table and non-table values"
-                        ))?;
+                            )
+                        })?;
                         into_t.extend(from_t);
                     }
                 }
