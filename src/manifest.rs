@@ -70,11 +70,11 @@ pub fn split_input(input: &Input, input_id: &OsString) -> MainResult<(String, St
 
     let source = templates::expand(&template, &subs)?;
 
-    log::info!("part_mani: {:?}", part_mani);
-    log::info!("source: {:?}", source);
+    log::trace!("part_mani: {:?}", part_mani);
+    log::trace!("source: {:?}", source);
 
     let part_mani = part_mani.into_toml()?;
-    log::info!("part_mani: {:?}", part_mani);
+    log::trace!("part_mani: {:?}", part_mani);
 
     // It's-a mergin' time!
     let def_mani = default_manifest(input, input_id)?;
@@ -82,10 +82,10 @@ pub fn split_input(input: &Input, input_id: &OsString) -> MainResult<(String, St
 
     // Fix up relative paths.
     let mani = fix_manifest_paths(mani, &input.base_path())?;
-    log::info!("mani: {:?}", mani);
+    log::trace!("mani: {:?}", mani);
 
     let mani_str = format!("{mani}");
-    log::info!("mani_str: {}", mani_str);
+    log::trace!("mani_str: {}", mani_str);
 
     Ok((mani_str, source))
 }
