@@ -3,8 +3,8 @@
 /// If this is set to `false`, then code that automatically deletes stuff *won't*.
 const ALLOW_AUTO_REMOVE: bool = true;
 
+mod dirs;
 mod manifest;
-mod platform;
 mod templates;
 mod util;
 
@@ -456,7 +456,7 @@ pub const MAX_CACHE_AGE: std::time::Duration = std::time::Duration::from_secs(7 
 fn clean_cache() -> anyhow::Result<()> {
     log::info!("cleaning cache");
 
-    let cache_dir = platform::binary_cache_path()?;
+    let cache_dir = dirs::binary_cache_path()?;
     if ALLOW_AUTO_REMOVE && cache_dir.exists() {
         if let Err(err) = fs::remove_dir_all(&cache_dir) {
             log::error!("failed to remove binary cache {:?}: {}", cache_dir, err);
@@ -475,7 +475,7 @@ fn gc_cache(max_age: std::time::Duration) -> anyhow::Result<()> {
     let cutoff = std::time::SystemTime::now() - max_age;
     log::trace!("cutoff:     {:>20?} ms", cutoff);
 
-    let cache_dir = platform::generated_projects_cache_path()?;
+    let cache_dir = dirs::generated_projects_cache_path()?;
     if cache_dir.exists() {
         for child in fs::read_dir(cache_dir)? {
             let child = child?;
@@ -707,7 +707,7 @@ fn decide_action_for(input: &Input, args: &Args) -> anyhow::Result<InputAction> 
         .map(|p| (p.into(), false))
         .unwrap_or_else(|| {
             // This can't fail.  Seriously, we're *fucked* if we can't work this out.
-            let cache_path = platform::generated_projects_cache_path().unwrap();
+            let cache_path = dirs::generated_projects_cache_path().unwrap();
             (cache_path.join(&input_id), true)
         });
     log::trace!("pkg_path: {}", pkg_path.display());
@@ -1059,7 +1059,7 @@ fn cargo(
         cmd.arg("--color").arg("always");
     }
 
-    let cargo_target_dir = format!("{}", platform::binary_cache_path()?.display(),);
+    let cargo_target_dir = format!("{}", dirs::binary_cache_path()?.display(),);
     cmd.arg("--target-dir");
     cmd.arg(cargo_target_dir);
 

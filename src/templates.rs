@@ -6,7 +6,7 @@ use std::fs;
 use anyhow::Context as _;
 use regex::Regex;
 
-use crate::platform;
+use crate::dirs;
 
 static RE_SUB: once_cell::sync::Lazy<Regex> =
     once_cell::sync::Lazy::new(|| Regex::new(r#"#\{([A-Za-z_][A-Za-z0-9_]*)}"#).unwrap());
@@ -46,7 +46,7 @@ pub fn expand(src: &str, subs: &HashMap<&str, &str>) -> anyhow::Result<String> {
 pub fn get_template(name: &str) -> anyhow::Result<Cow<'static, str>> {
     use std::io::Read;
 
-    let base = platform::templates_dir()?;
+    let base = dirs::templates_dir()?;
 
     let file = fs::File::open(base.join(format!("{name}.rs")))
         .map_err(anyhow::Error::from)
@@ -120,7 +120,7 @@ fn try_main() -> Result<(), Box<dyn std::error::Error>> {
 pub fn list() -> anyhow::Result<()> {
     use std::ffi::OsStr;
 
-    let t_path = platform::templates_dir()?;
+    let t_path = dirs::templates_dir()?;
 
     if !t_path.exists() {
         fs::create_dir_all(&t_path)?;
