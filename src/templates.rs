@@ -1,6 +1,6 @@
 ///  Template support.
-use crate::error::{MainError, MainResult};
 use crate::platform;
+use anyhow::Context as _;
 use regex::Regex;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -9,7 +9,7 @@ use std::fs;
 static RE_SUB: once_cell::sync::Lazy<Regex> =
     once_cell::sync::Lazy::new(|| Regex::new(r#"#\{([A-Za-z_][A-Za-z0-9_]*)}"#).unwrap());
 
-pub fn expand(src: &str, subs: &HashMap<&str, &str>) -> MainResult<String> {
+pub fn expand(src: &str, subs: &HashMap<&str, &str>) -> anyhow::Result<String> {
     // The estimate of final size is the sum of the size of all the input.
     let sub_size = subs.iter().map(|(_, v)| v.len()).sum::<usize>();
     let est_size = src.len() + sub_size;
@@ -32,9 +32,7 @@ pub fn expand(src: &str, subs: &HashMap<&str, &str>) -> MainResult<String> {
         match subs.get(sub_name) {
             Some(s) => result.push_str(s),
             None => {
-                return Err(MainError::OtherOwned(format!(
-                    "substitution `{sub_name}` in template is unknown"
-                )))
+                anyhow::bail!("substitution `{sub_name}` in template is unknown")
             }
         }
     }
@@ -43,22 +41,18 @@ pub fn expand(src: &str, subs: &HashMap<&str, &str>) -> MainResult<String> {
 }
 
 /// Attempts to locate and load the contents of the specified template.
-pub fn get_template(name: &str) -> MainResult<Cow<'static, str>> {
+pub fn get_template(name: &str) -> anyhow::Result<Cow<'static, str>> {
     use std::io::Read;
 
     let base = platform::templates_dir()?;
 
     let file = fs::File::open(base.join(format!("{name}.rs")))
-        .map_err(MainError::from)
-        .map_err(|e| {
-            MainError::Tag(
-                format!(
-                    "template file `{}.rs` does not exist in {}",
-                    name,
-                    base.display()
-                )
-                .into(),
-                Box::new(e),
+        .map_err(anyhow::Error::from)
+        .with_context(|| {
+            format!(
+                "template file `{}.rs` does not exist in {}",
+                name,
+                base.display()
             )
         });
 
@@ -121,7 +115,7 @@ fn try_main() -> Result<(), Box<dyn std::error::Error>> {
 //
 // TODO: Merge the `LOOP_*` templates so there isn't duplicated code.  It's icky.
 
-pub fn list() -> MainResult<()> {
+pub fn list() -> anyhow::Result<()> {
     use std::ffi::OsStr;
 
     let t_path = platform::templates_dir()?;
@@ -133,19 +127,17 @@ pub fn list() -> MainResult<()> {
     println!("Listing templates in {}", t_path.display());
 
     if !t_path.exists() {
-        return Err(format!(
+        anyhow::bail!(
             "cannot list template directory `{}`: it does not exist",
             t_path.display()
         )
-        .into());
     }
 
     if !t_path.is_dir() {
-        return Err(format!(
+        anyhow::bail!(
             "cannot list template directory `{}`: it is not a directory",
             t_path.display()
         )
-        .into());
     }
 
     for entry in fs::read_dir(&t_path)? {

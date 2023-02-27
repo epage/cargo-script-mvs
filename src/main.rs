@@ -3,7 +3,6 @@
 /// If this is set to `false`, then code that automatically deletes stuff *won't*.
 const ALLOW_AUTO_REMOVE: bool = true;
 
-mod error;
 mod manifest;
 mod platform;
 mod templates;
@@ -22,7 +21,6 @@ use std::io::{BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::error::{MainError, MainResult};
 use crate::util::Defer;
 use sha1::{Digest, Sha1};
 
@@ -89,7 +87,7 @@ impl BuildKind {
     }
 }
 
-fn parse_args() -> MainResult<Args> {
+fn parse_args() -> anyhow::Result<Args> {
     use clap::{Arg, Command};
     let about = r#"Compiles and runs a Rust script"#;
 
@@ -271,18 +269,16 @@ fn parse_args() -> MainResult<Args> {
         BuildKind::Normal => {}
         BuildKind::Test => {
             if !unstable_flags.contains(&UnstableFlags::Test) {
-                return Err(
+                anyhow::bail!(
                     "`--test` is unstable and requires `-Z test` (epage/cargo-script-mvs#29)."
-                        .into(),
-                );
+                )
             }
         }
         BuildKind::Bench => {
             if !unstable_flags.contains(&UnstableFlags::Bench) {
-                return Err(
+                anyhow::bail!(
                     "`--bench` is unstable and requires `-Z bench` (epage/cargo-script-mvs#68)."
-                        .into(),
-                );
+                )
             }
         }
     }
@@ -290,18 +286,13 @@ fn parse_args() -> MainResult<Args> {
     let toolchain_version = m.get_one::<String>("toolchain-version").map(Into::into);
     if let Some(toolchain_version) = &toolchain_version {
         if !unstable_flags.contains(&UnstableFlags::ToolchainVersion) {
-            return Err(
-                    format!("`--toolchain-version={toolchain_version}` is unstable and requires `-Z toolchain-version` (epage/cargo-script-mvs#36).")
-                        .into(),
-                );
+            anyhow::bail!("`--toolchain-version={toolchain_version}` is unstable and requires `-Z toolchain-version` (epage/cargo-script-mvs#36).")
         }
     }
 
     let expr = *m.get_one::<bool>("expr").expect("defaulted");
     if expr && !unstable_flags.contains(&UnstableFlags::Expr) {
-        return Err(
-            "`--expr` is unstable and requires `-Z expr` (epage/cargo-script-mvs#72).".into(),
-        );
+        anyhow::bail!("`--expr` is unstable and requires `-Z expr` (epage/cargo-script-mvs#72).")
     }
 
     Ok(Args {
@@ -353,7 +344,7 @@ fn main() {
     }
 }
 
-fn try_main() -> MainResult<i32> {
+fn try_main() -> anyhow::Result<i32> {
     let args = parse_args()?;
     log::trace!("Arguments: {:?}", args);
 
@@ -388,10 +379,9 @@ fn try_main() -> MainResult<i32> {
 
     let input = match (args.script.clone().unwrap(), args.expr) {
         (script, false) => {
-            let (path, mut file) = find_script(&script).ok_or(format!(
-                "could not find script: {}",
-                script.to_string_lossy()
-            ))?;
+            let (path, mut file) = find_script(&script).ok_or_else(|| {
+                anyhow::format_err!("could not find script: {}", script.to_string_lossy())
+            })?;
 
             script_name = path
                 .file_stem()
@@ -408,7 +398,9 @@ fn try_main() -> MainResult<i32> {
         (expr, true) => {
             let expr = expr
                 .to_str()
-                .ok_or_else(|| format!("expr must be UTF-8, got {}", expr.to_string_lossy()))?
+                .ok_or_else(|| {
+                    anyhow::format_err!("expr must be UTF-8, got {}", expr.to_string_lossy())
+                })?
                 .to_owned();
             Input::Expr(expr, args.template.clone())
         }
@@ -435,7 +427,7 @@ fn try_main() -> MainResult<i32> {
     let _defer_clear = {
         // To get around partially moved args problems.
         let cc = args.clear_cache;
-        Defer::<_, MainError>::new(move || {
+        Defer::<_, anyhow::Error>::new(move || {
             if !cc {
                 gc_cache(MAX_CACHE_AGE)?;
             }
@@ -460,7 +452,7 @@ fn try_main() -> MainResult<i32> {
 pub const MAX_CACHE_AGE: std::time::Duration = std::time::Duration::from_secs(7 * 24 * 60 * 60);
 
 /// Empty the cache
-fn clean_cache() -> MainResult<()> {
+fn clean_cache() -> anyhow::Result<()> {
     log::info!("cleaning cache");
 
     let cache_dir = platform::binary_cache_path()?;
@@ -476,7 +468,7 @@ fn clean_cache() -> MainResult<()> {
 ///
 /// Looks for all folders whose metadata says they were created at least `max_age` in the past and
 /// kills them dead.
-fn gc_cache(max_age: std::time::Duration) -> MainResult<()> {
+fn gc_cache(max_age: std::time::Duration) -> anyhow::Result<()> {
     log::info!("cleaning cache with max_age: {:?}", max_age);
 
     let cutoff = std::time::SystemTime::now() - max_age;
@@ -544,7 +536,7 @@ fn gc_cache(max_age: std::time::Duration) -> MainResult<()> {
 /// Generate and compile a package from the input.
 ///
 /// Why take `PackageMetadata`?  To ensure that any information we need to depend on for compilation *first* passes through `decide_action_for` *and* is less likely to not be serialised with the rest of the metadata.
-fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> MainResult<()> {
+fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> anyhow::Result<()> {
     let pkg_path = &action.pkg_path;
     let meta = &action.metadata;
     let old_meta = action.old_metadata.as_ref();
@@ -554,7 +546,7 @@ fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> MainResult<()> {
 
     log::trace!("creating pkg dir...");
     fs::create_dir_all(pkg_path)?;
-    let cleanup_dir: Defer<_, MainError> = Defer::new(|| {
+    let cleanup_dir: Defer<_, anyhow::Error> = Defer::new(|| {
         // DO NOT try deleting ANYTHING if we're not cleaning up inside our own cache.  We *DO NOT* want to risk killing user files.
         if action.using_cache {
             log::debug!("cleaning up cache directory {}", pkg_path.display());
@@ -661,7 +653,12 @@ impl InputAction {
         self.pkg_path.join("Cargo.toml")
     }
 
-    fn cargo(&self, cmd: &str, script_args: &[OsString], run_quietly: bool) -> MainResult<Command> {
+    fn cargo(
+        &self,
+        cmd: &str,
+        script_args: &[OsString],
+        run_quietly: bool,
+    ) -> anyhow::Result<Command> {
         cargo(
             cmd,
             &self.manifest_path().to_string_lossy(),
@@ -699,7 +696,7 @@ struct PackageMetadata {
 }
 
 /// For the given input, this constructs the package metadata and checks the cache to see what should be done.
-fn decide_action_for(input: &Input, args: &Args) -> MainResult<InputAction> {
+fn decide_action_for(input: &Input, args: &Args) -> anyhow::Result<InputAction> {
     let input_id = input.compute_id();
     log::trace!("id: {:?}", input_id);
 
@@ -800,7 +797,7 @@ fn decide_action_for(input: &Input, args: &Args) -> MainResult<InputAction> {
 }
 
 /// Load the package metadata, given the path to the package's cache folder.
-fn get_pkg_metadata<P>(pkg_path: P) -> MainResult<PackageMetadata>
+fn get_pkg_metadata<P>(pkg_path: P) -> anyhow::Result<PackageMetadata>
 where
     P: AsRef<Path>,
 {
@@ -813,7 +810,7 @@ where
         meta_file.read_to_string(&mut s).unwrap();
         s
     };
-    let meta: PackageMetadata = serde_json::from_str(&meta_str).map_err(|err| err.to_string())?;
+    let meta: PackageMetadata = serde_json::from_str(&meta_str)?;
 
     Ok(meta)
 }
@@ -827,18 +824,16 @@ where
 }
 
 /// Save the package metadata, given the path to the package's cache folder.
-fn write_pkg_metadata<P>(pkg_path: P, meta: &PackageMetadata) -> MainResult<()>
+fn write_pkg_metadata<P>(pkg_path: P, meta: &PackageMetadata) -> anyhow::Result<()>
 where
     P: AsRef<Path>,
 {
     let meta_path = get_pkg_metadata_path(&pkg_path);
     log::trace!("meta_path: {:?}", meta_path);
     let mut temp_file = tempfile::NamedTempFile::new_in(&pkg_path)?;
-    serde_json::to_writer(BufWriter::new(&temp_file), meta).map_err(|err| err.to_string())?;
+    serde_json::to_writer(BufWriter::new(&temp_file), meta)?;
     temp_file.flush()?;
-    temp_file
-        .persist(&meta_path)
-        .map_err(|err| err.to_string())?;
+    temp_file.persist(&meta_path)?;
     Ok(())
 }
 
@@ -998,7 +993,7 @@ enum FileOverwrite {
 }
 
 /// Overwrite a file if and only if the contents have changed.
-fn overwrite_file<P>(path: P, content: &str, hash: Option<&str>) -> MainResult<FileOverwrite>
+fn overwrite_file<P>(path: P, content: &str, hash: Option<&str>) -> anyhow::Result<FileOverwrite>
 where
     P: AsRef<Path>,
 {
@@ -1013,11 +1008,11 @@ where
     let dir = path
         .as_ref()
         .parent()
-        .ok_or("The given path should be a file")?;
+        .ok_or(anyhow::format_err!("The given path should be a file"))?;
     let mut temp_file = tempfile::NamedTempFile::new_in(dir)?;
     temp_file.write_all(content.as_bytes())?;
     temp_file.flush()?;
-    temp_file.persist(path).map_err(|e| e.to_string())?;
+    temp_file.persist(path)?;
     Ok(FileOverwrite::Changed { new_hash })
 }
 
@@ -1029,7 +1024,7 @@ fn cargo(
     meta: &PackageMetadata,
     script_args: &[OsString],
     run_quietly: bool,
-) -> MainResult<Command> {
+) -> anyhow::Result<Command> {
     // Always specify a toolchain to avoid being affected by rust-version(.toml) files:
     let toolchain_version = toolchain_version.unwrap_or("stable");
 

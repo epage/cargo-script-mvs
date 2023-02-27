@@ -2,10 +2,10 @@
 use regex;
 
 use self::regex::Regex;
+use anyhow::Context as _;
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::error::{MainError, MainResult};
 use crate::templates;
 use crate::Input;
 use std::ffi::OsString;
@@ -31,7 +31,7 @@ static RE_CRATE_COMMENT: once_cell::sync::Lazy<Regex> = once_cell::sync::Lazy::n
 /// Splits input into a complete Cargo manifest and unadultered Rust source.
 ///
 /// Unless we have prelude items to inject, in which case it will be *slightly* adulterated.
-pub fn split_input(input: &Input, input_id: &OsString) -> MainResult<(String, String)> {
+pub fn split_input(input: &Input, input_id: &OsString) -> anyhow::Result<(String, String)> {
     fn contains_main_method(line: &str) -> bool {
         let line = line.trim_start();
         line.starts_with("fn main(")
@@ -268,18 +268,14 @@ enum Manifest<'s> {
 }
 
 impl<'s> Manifest<'s> {
-    pub fn into_toml(self) -> MainResult<toml::value::Table> {
+    pub fn into_toml(self) -> anyhow::Result<toml::value::Table> {
         use self::Manifest::*;
         match self {
             Toml(s) => toml::from_str(s),
             TomlOwned(ref s) => toml::from_str(s),
         }
-        .map_err(|e| {
-            MainError::Tag(
-                "could not parse embedded manifest".into(),
-                Box::new(MainError::Other(Box::new(e))),
-            )
-        })
+        .map_err(anyhow::Error::from)
+        .context("could not parse embedded manifest")
     }
 }
 
@@ -631,17 +627,17 @@ dependencies = { explode = true }
 }
 
 /// Extracts the contents of a Rust doc comment.
-fn extract_comment(s: &str) -> MainResult<String> {
+fn extract_comment(s: &str) -> anyhow::Result<String> {
     use std::cmp::min;
 
-    fn n_leading_spaces(s: &str, n: usize) -> MainResult<()> {
+    fn n_leading_spaces(s: &str, n: usize) -> anyhow::Result<()> {
         if !s.chars().take(n).all(|c| c == ' ') {
-            return Err(format!("leading {n:?} chars aren't all spaces: {s:?}").into());
+            anyhow::bail!("leading {n:?} chars aren't all spaces: {s:?}")
         }
         Ok(())
     }
 
-    fn extract_block(s: &str) -> MainResult<String> {
+    fn extract_block(s: &str) -> anyhow::Result<String> {
         // On every line:
         //
         // - update nesting level and detect end-of-comment
@@ -720,7 +716,7 @@ fn extract_comment(s: &str) -> MainResult<String> {
         Ok(r)
     }
 
-    fn extract_line(s: &str) -> MainResult<String> {
+    fn extract_line(s: &str) -> anyhow::Result<String> {
         let mut r = String::new();
 
         let comment_re = &*RE_COMMENT;
@@ -766,7 +762,7 @@ fn extract_comment(s: &str) -> MainResult<String> {
     } else if s.starts_with("//!") || s.starts_with("///") {
         extract_line(s)
     } else {
-        Err("no doc comment found".into())
+        Err(anyhow::format_err!("no doc comment found"))
     }
 }
 
@@ -847,7 +843,7 @@ time = "*"
 }
 
 /// Generates a default Cargo manifest for the given input.
-fn default_manifest(input: &Input, input_id: &OsString) -> MainResult<toml::value::Table> {
+fn default_manifest(input: &Input, input_id: &OsString) -> anyhow::Result<toml::value::Table> {
     let mani_str = {
         let pkg_name = input.package_name();
         let bin_name = format!("{}_{}", &*pkg_name, input_id.to_str().unwrap());
@@ -857,12 +853,8 @@ fn default_manifest(input: &Input, input_id: &OsString) -> MainResult<toml::valu
         subs.insert(MANI_FILE_SUB, input.safe_name());
         templates::expand(DEFAULT_MANIFEST, &subs)?
     };
-    toml::from_str(&mani_str).map_err(|e| {
-        MainError::Tag(
-            "could not parse default manifest".into(),
-            Box::new(MainError::Other(Box::new(e))),
-        )
-    })
+    let table = toml::from_str(&mani_str).expect("default manifest mut always be parseable");
+    Ok(table)
 }
 
 /// The default manifest used for packages.
@@ -892,7 +884,7 @@ pub const MANI_FILE_SUB: &str = "file";
 fn merge_manifest(
     mut into_t: toml::value::Table,
     from_t: toml::value::Table,
-) -> MainResult<toml::value::Table> {
+) -> anyhow::Result<toml::value::Table> {
     for (k, v) in from_t {
         match v {
             toml::Value::Table(from_t) => {
@@ -902,10 +894,10 @@ fn merge_manifest(
                         e.insert(toml::Value::Table(from_t));
                     }
                     toml::map::Entry::Occupied(e) => {
-                        let into_t = as_table_mut(e.into_mut()).ok_or(
+                        let into_t = as_table_mut(e.into_mut()).ok_or(anyhow::format_err!(
                             "cannot merge manifests: cannot merge \
-                                table and non-table values",
-                        )?;
+                                table and non-table values"
+                        ))?;
                         into_t.extend(from_t);
                     }
                 }
@@ -928,7 +920,7 @@ fn merge_manifest(
 }
 
 /// Given a Cargo manifest, attempts to rewrite relative file paths to absolute ones, allowing the manifest to be relocated.
-fn fix_manifest_paths(mani: toml::value::Table, base: &Path) -> MainResult<toml::value::Table> {
+fn fix_manifest_paths(mani: toml::value::Table, base: &Path) -> anyhow::Result<toml::value::Table> {
     // Values that need to be rewritten:
     let paths: &[&[&str]] = &[
         &["build-dependencies", "*", "path"],
@@ -965,9 +957,9 @@ fn iterate_toml_mut_path<F>(
     base: &mut toml::Value,
     path: &[&str],
     on_each: &mut F,
-) -> MainResult<()>
+) -> anyhow::Result<()>
 where
-    F: FnMut(&mut toml::Value) -> MainResult<()>,
+    F: FnMut(&mut toml::Value) -> anyhow::Result<()>,
 {
     if path.is_empty() {
         return on_each(base);

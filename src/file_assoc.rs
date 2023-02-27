@@ -5,10 +5,10 @@ use std::env;
 use std::io;
 use winreg::{enums as wre, RegKey};
 
-pub fn install_file_association() -> MainResult<()> {
+pub fn install_file_association() -> anyhow::Result<()> {
     let rust_script_path = env::current_exe()?.canonicalize()?;
     if !rust_script_path.exists() {
-        return Err(format!("{:?} not found", rust_script_path).into());
+        anyhow::bail!("{:?} not found", rust_script_path)
     }
 
     // We have to remove the `\\?\` prefix because, if we don't, the shell freaks out.
@@ -50,7 +50,7 @@ pub fn install_file_association() -> MainResult<()> {
     Ok(())
 }
 
-pub fn uninstall_file_association() -> MainResult<()> {
+pub fn uninstall_file_association() -> anyhow::Result<()> {
     let mut ignored_missing = false;
     {
         let mut notify = || ignored_missing = true;

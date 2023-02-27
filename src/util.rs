@@ -1,6 +1,5 @@
 //! This module just contains other random implementation stuff.
 
-use std::error::Error;
 use std::marker::PhantomData;
 
 /// Used to defer a closure until the value is dropped.
@@ -12,12 +11,12 @@ use std::marker::PhantomData;
 pub struct Defer<'a, F, E>(Option<F>, PhantomData<&'a F>)
 where
     F: 'a + FnOnce() -> Result<(), E>,
-    E: Error;
+    E: std::fmt::Display;
 
 impl<'a, F, E> Defer<'a, F, E>
 where
     F: 'a + FnOnce() -> Result<(), E>,
-    E: Error,
+    E: std::fmt::Display,
 {
     /// Create a new `Defer` with the given closure.
     pub fn new(f: F) -> Defer<'a, F, E> {
@@ -34,7 +33,7 @@ where
 impl<'a, F, E> ::std::ops::Drop for Defer<'a, F, E>
 where
     F: 'a + FnOnce() -> Result<(), E>,
-    E: Error,
+    E: std::fmt::Display,
 {
     fn drop(&mut self) {
         if let Some(f) = self.0.take() {
