@@ -402,7 +402,7 @@ fn try_main() -> MainResult<i32> {
             let mut body = String::new();
             file.read_to_string(&mut body)?;
 
-            let mtime = platform::file_last_modified(&file);
+            let mtime = file.metadata().and_then(|m| m.modified()).ok();
 
             script_path = std::env::current_dir()?.join(path);
 
@@ -686,7 +686,7 @@ struct PackageMetadata {
     path: Option<String>,
 
     /// Last-modified timestamp for script file.
-    modified: Option<u128>,
+    modified: Option<std::time::SystemTime>,
 
     /// Template used.
     template: Option<String>,
@@ -732,11 +732,9 @@ fn decide_action_for(input: &Input, args: &Args) -> MainResult<InputAction> {
 
     let input_meta = {
         let (path, mtime, template) = match input {
-            Input::File(_, path, _, mtime) => (
-                Some(path.to_string_lossy().into_owned()),
-                Some(*mtime),
-                None,
-            ),
+            Input::File(_, path, _, mtime) => {
+                (Some(path.to_string_lossy().into_owned()), *mtime, None)
+            }
             Input::Expr(_, template) => (None, None, template.clone()),
         };
         let features = if args.features.is_empty() {
@@ -888,7 +886,7 @@ pub enum Input {
     /// The input is a script file.
     ///
     /// The tuple members are: the name, absolute path, script contents, last modified time.
-    File(String, PathBuf, String, u128),
+    File(String, PathBuf, String, Option<std::time::SystemTime>),
 
     /// The input is an expression.
     ///
@@ -1101,14 +1099,14 @@ fn test_package_name() {
         "Script".into(),
         Path::new("path").into(),
         "script".into(),
-        0,
+        None,
     );
     assert_eq!("script", input.package_name());
     let input = Input::File(
         "1Script".into(),
         Path::new("path").into(),
         "script".into(),
-        0,
+        None,
     );
     assert_eq!("_1script", input.package_name());
 }
