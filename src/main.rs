@@ -15,7 +15,6 @@ mod file_assoc;
 #[cfg(not(windows))]
 mod file_assoc {}
 
-use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
 use std::fs;
@@ -356,7 +355,7 @@ fn main() {
 
 fn try_main() -> MainResult<i32> {
     let args = parse_args()?;
-    info!("Arguments: {:?}", args);
+    log::info!("Arguments: {:?}", args);
 
     #[cfg(windows)]
     {
@@ -414,7 +413,7 @@ fn try_main() -> MainResult<i32> {
             Input::Expr(expr, args.template.clone())
         }
     };
-    info!("input: {:?}", input);
+    log::info!("input: {:?}", input);
 
     // Setup environment variables early so it's available at compilation time of scripts,
     // to allow e.g. include!(concat!(env!("RUST_SCRIPT_BASE_PATH"), "/script-module.rs"));
@@ -427,7 +426,7 @@ fn try_main() -> MainResult<i32> {
     std::env::set_var("RUST_SCRIPT_BASE_PATH", input.base_path());
 
     let action = decide_action_for(&input, &args)?;
-    info!("action: {:?}", action);
+    log::info!("action: {:?}", action);
 
     gen_pkg_and_compile(&input, &action)?;
 
@@ -446,7 +445,7 @@ fn try_main() -> MainResult<i32> {
 
     let exit_code = {
         let cmd_name = action.build_kind.exec_command();
-        info!("running `cargo {}`", cmd_name);
+        log::info!("running `cargo {}`", cmd_name);
 
         let run_quietly = !action.cargo_output;
         let mut cmd = action.cargo(cmd_name, &args.script_args, run_quietly)?;
@@ -462,12 +461,12 @@ pub const MAX_CACHE_AGE: std::time::Duration = std::time::Duration::from_secs(7 
 
 /// Empty the cache
 fn clean_cache() -> MainResult<()> {
-    info!("cleaning cache");
+    log::info!("cleaning cache");
 
     let cache_dir = platform::binary_cache_path()?;
     if ALLOW_AUTO_REMOVE && cache_dir.exists() {
         if let Err(err) = fs::remove_dir_all(&cache_dir) {
-            error!("failed to remove binary cache {:?}: {}", cache_dir, err);
+            log::error!("failed to remove binary cache {:?}: {}", cache_dir, err);
         }
     }
     Ok(())
@@ -478,10 +477,10 @@ fn clean_cache() -> MainResult<()> {
 /// Looks for all folders whose metadata says they were created at least `max_age` in the past and
 /// kills them dead.
 fn gc_cache(max_age: std::time::Duration) -> MainResult<()> {
-    info!("cleaning cache with max_age: {:?}", max_age);
+    log::info!("cleaning cache with max_age: {:?}", max_age);
 
     let cutoff = std::time::SystemTime::now() - max_age;
-    info!("cutoff:     {:>20?} ms", cutoff);
+    log::info!("cutoff:     {:>20?} ms", cutoff);
 
     let cache_dir = platform::generated_projects_cache_path()?;
     if cache_dir.exists() {
@@ -492,7 +491,7 @@ fn gc_cache(max_age: std::time::Duration) -> MainResult<()> {
                 continue;
             }
 
-            info!("checking: {:?}", path);
+            log::info!("checking: {:?}", path);
 
             let remove_dir = || {
                 // Ok, so *why* aren't we using `modified in the package metadata?
@@ -510,13 +509,13 @@ fn gc_cache(max_age: std::time::Duration) -> MainResult<()> {
                     let meta_file = match fs::File::open(meta_path) {
                         Ok(file) => file,
                         Err(..) => {
-                            info!("couldn't open metadata for {:?}", path);
+                            log::info!("couldn't open metadata for {:?}", path);
                             return true;
                         }
                     };
                     meta_file.metadata().and_then(|m| m.modified()).ok()
                 };
-                debug!("meta_mtime: {:>20?} ms", meta_mtime);
+                log::debug!("meta_mtime: {:>20?} ms", meta_mtime);
 
                 if let Some(meta_mtime) = meta_mtime {
                     meta_mtime <= cutoff
@@ -526,19 +525,19 @@ fn gc_cache(max_age: std::time::Duration) -> MainResult<()> {
             };
 
             if remove_dir() {
-                info!("removing {:?}", path);
+                log::info!("removing {:?}", path);
                 if ALLOW_AUTO_REMOVE {
                     if let Err(err) = fs::remove_dir_all(&path) {
-                        error!("failed to remove {:?} from cache: {}", path, err);
+                        log::error!("failed to remove {:?} from cache: {}", path, err);
                     }
                 } else {
-                    info!("(suppressed remove)");
+                    log::info!("(suppressed remove)");
                 }
             }
         }
     }
 
-    info!("done cleaning cache.");
+    log::info!("done cleaning cache.");
     Ok(())
 }
 
@@ -553,16 +552,16 @@ fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> MainResult<()> {
     let mani_str = &action.manifest;
     let script_str = &action.script;
 
-    info!("creating pkg dir...");
+    log::info!("creating pkg dir...");
     fs::create_dir_all(pkg_path)?;
     let cleanup_dir: Defer<_, MainError> = Defer::new(|| {
         // DO NOT try deleting ANYTHING if we're not cleaning up inside our own cache.  We *DO NOT* want to risk killing user files.
         if action.using_cache {
-            info!("cleaning up cache directory {}", pkg_path.display());
+            log::info!("cleaning up cache directory {}", pkg_path.display());
             if ALLOW_AUTO_REMOVE {
                 fs::remove_dir_all(pkg_path)?;
             } else {
-                info!("(suppressed remove)");
+                log::info!("(suppressed remove)");
             }
         }
         Ok(())
@@ -570,7 +569,7 @@ fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> MainResult<()> {
 
     let mut meta = meta.clone();
 
-    info!("generating Cargo package...");
+    log::info!("generating Cargo package...");
     let mani_path = action.manifest_path();
     let mani_hash = old_meta.map(|m| &*m.manifest_hash);
     match overwrite_file(mani_path, mani_str, mani_hash)? {
@@ -587,7 +586,7 @@ fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> MainResult<()> {
         // *force* a recompile, we'll deliberately force the script to be overwritten,
         // which will invalidate the timestamp, which will lead to a recompile.
         let script_hash = if action.force_compile {
-            debug!("told to force compile, ignoring script hash");
+            log::debug!("told to force compile, ignoring script hash");
             None
         } else {
             old_meta.map(|m| &*m.script_hash)
@@ -604,11 +603,11 @@ fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> MainResult<()> {
 
     // Write out metadata *now*.  Remember that we check the timestamp on the metadata, *not* on the executable.
     if action.emit_metadata {
-        info!("emitting metadata...");
+        log::info!("emitting metadata...");
         write_pkg_metadata(pkg_path, &meta)?;
     }
 
-    info!("disarming pkg dir cleanup...");
+    log::info!("disarming pkg dir cleanup...");
     cleanup_dir.disarm();
 
     Ok(())
@@ -702,7 +701,7 @@ struct PackageMetadata {
 /// For the given input, this constructs the package metadata and checks the cache to see what should be done.
 fn decide_action_for(input: &Input, args: &Args) -> MainResult<InputAction> {
     let input_id = input.compute_id();
-    info!("id: {:?}", input_id);
+    log::info!("id: {:?}", input_id);
 
     let (pkg_path, using_cache) = args
         .pkg_path
@@ -713,8 +712,8 @@ fn decide_action_for(input: &Input, args: &Args) -> MainResult<InputAction> {
             let cache_path = platform::generated_projects_cache_path().unwrap();
             (cache_path.join(&input_id), true)
         });
-    info!("pkg_path: {}", pkg_path.display());
-    info!("using_cache: {}", using_cache);
+    log::info!("pkg_path: {}", pkg_path.display());
+    log::info!("using_cache: {}", using_cache);
 
     let (mani_str, script_str) = manifest::split_input(input, &input_id)?;
 
@@ -744,7 +743,7 @@ fn decide_action_for(input: &Input, args: &Args) -> MainResult<InputAction> {
             script_hash: hash_str(&script_str),
         }
     };
-    info!("input_meta: {:?}", input_meta);
+    log::info!("input_meta: {:?}", input_meta);
 
     let toolchain_version = args
         .toolchain_version
@@ -781,7 +780,7 @@ fn decide_action_for(input: &Input, args: &Args) -> MainResult<InputAction> {
     match action.build_kind {
         BuildKind::Normal => (),
         BuildKind::Test | BuildKind::Bench => {
-            info!("not recompiling because: user asked for test/bench");
+            log::info!("not recompiling because: user asked for test/bench");
             bail!(force_compile: false)
         }
     }
@@ -789,7 +788,7 @@ fn decide_action_for(input: &Input, args: &Args) -> MainResult<InputAction> {
     action.old_metadata = match get_pkg_metadata(&action.pkg_path) {
         Ok(meta) => Some(meta),
         Err(err) => {
-            info!(
+            log::info!(
                 "recompiling since failed to load metadata: {}",
                 err.to_string()
             );
@@ -806,7 +805,7 @@ where
     P: AsRef<Path>,
 {
     let meta_path = get_pkg_metadata_path(pkg_path);
-    debug!("meta_path: {:?}", meta_path);
+    log::debug!("meta_path: {:?}", meta_path);
     let mut meta_file = fs::File::open(&meta_path)?;
 
     let meta_str = {
@@ -833,7 +832,7 @@ where
     P: AsRef<Path>,
 {
     let meta_path = get_pkg_metadata_path(&pkg_path);
-    debug!("meta_path: {:?}", meta_path);
+    log::debug!("meta_path: {:?}", meta_path);
     let mut temp_file = tempfile::NamedTempFile::new_in(&pkg_path)?;
     serde_json::to_writer(BufWriter::new(&temp_file), meta).map_err(|err| err.to_string())?;
     temp_file.flush()?;
@@ -1003,14 +1002,14 @@ fn overwrite_file<P>(path: P, content: &str, hash: Option<&str>) -> MainResult<F
 where
     P: AsRef<Path>,
 {
-    debug!("overwrite_file({:?}, _, {:?})", path.as_ref(), hash);
+    log::debug!("overwrite_file({:?}, _, {:?})", path.as_ref(), hash);
     let new_hash = hash_str(content);
     if Some(&*new_hash) == hash {
-        debug!(".. hashes match");
+        log::debug!(".. hashes match");
         return Ok(FileOverwrite::Same);
     }
 
-    debug!(".. hashes differ; new_hash: {:?}", new_hash);
+    log::debug!(".. hashes differ; new_hash: {:?}", new_hash);
     let dir = path
         .as_ref()
         .parent()
@@ -1049,7 +1048,7 @@ fn cargo(
     // Set tracing on if not set
     if std::env::var_os("RUST_BACKTRACE").is_none() {
         cmd.env("RUST_BACKTRACE", "1");
-        info!("setting RUST_BACKTRACE=1 for this cargo run");
+        log::info!("setting RUST_BACKTRACE=1 for this cargo run");
     }
 
     cmd.arg(cmd_name);

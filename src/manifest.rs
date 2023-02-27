@@ -8,7 +8,6 @@ use std::path::Path;
 use crate::error::{MainError, MainResult};
 use crate::templates;
 use crate::Input;
-use log::{error, info};
 use std::ffi::OsString;
 
 static RE_MARGIN: once_cell::sync::Lazy<Regex> =
@@ -71,11 +70,11 @@ pub fn split_input(input: &Input, input_id: &OsString) -> MainResult<(String, St
 
     let source = templates::expand(&template, &subs)?;
 
-    info!("part_mani: {:?}", part_mani);
-    info!("source: {:?}", source);
+    log::info!("part_mani: {:?}", part_mani);
+    log::info!("source: {:?}", source);
 
     let part_mani = part_mani.into_toml()?;
-    info!("part_mani: {:?}", part_mani);
+    log::info!("part_mani: {:?}", part_mani);
 
     // It's-a mergin' time!
     let def_mani = default_manifest(input, input_id)?;
@@ -83,10 +82,10 @@ pub fn split_input(input: &Input, input_id: &OsString) -> MainResult<(String, St
 
     // Fix up relative paths.
     let mani = fix_manifest_paths(mani, &input.base_path())?;
-    info!("mani: {:?}", mani);
+    log::info!("mani: {:?}", mani);
 
     let mani_str = format!("{mani}");
-    info!("mani_str: {}", mani_str);
+    log::info!("mani_str: {}", mani_str);
 
     Ok((mani_str, source))
 }
@@ -495,7 +494,7 @@ fn find_code_block_manifest(s: &str) -> Option<(Manifest, &str)> {
     let comment = match extract_comment(&rest[start..]) {
         Ok(s) => s,
         Err(err) => {
-            error!("error slicing comment: {}", err);
+            log::error!("error slicing comment: {}", err);
             return None;
         }
     };

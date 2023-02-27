@@ -1,6 +1,5 @@
 //! This module just contains other random implementation stuff.
 
-use log::error;
 use std::error::Error;
 use std::marker::PhantomData;
 
@@ -40,7 +39,7 @@ where
     fn drop(&mut self) {
         if let Some(f) = self.0.take() {
             if let Err(err) = f() {
-                error!("deferred function failed: {}", err);
+                log::error!("deferred function failed: {}", err);
             }
         }
     }
