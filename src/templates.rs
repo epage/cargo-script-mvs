@@ -80,8 +80,6 @@ fn builtin_template(name: &str) -> Option<&'static str> {
     Some(match name {
         "expr" => EXPR_TEMPLATE,
         "file" => FILE_TEMPLATE,
-        "loop" => LOOP_TEMPLATE,
-        "loop-count" => LOOP_COUNT_TEMPLATE,
         _ => return None,
     })
 }
@@ -122,81 +120,6 @@ fn try_main() -> Result<(), Box<dyn std::error::Error>> {
 // Regarding the loop templates: what I *want* is for the result of the closure to be printed to standard output *only* if it's not `()`.
 //
 // TODO: Merge the `LOOP_*` templates so there isn't duplicated code.  It's icky.
-
-/// The template used for `--loop` input, assuming no `--count` flag is also given.
-pub const LOOP_TEMPLATE: &str = r#"
-#![allow(unused_imports)]
-#![allow(unused_braces)]
-#{prelude}
-use std::any::Any;
-use std::io::prelude::*;
-
-fn main() {
-    let mut closure = enforce_closure(
-{#{script}}
-    );
-    let mut line_buffer = String::new();
-    let stdin = std::io::stdin();
-    loop {
-        line_buffer.clear();
-        let read_res = stdin.read_line(&mut line_buffer).unwrap_or(0);
-        if read_res == 0 { break }
-        let output = closure(&line_buffer);
-
-        let display = {
-            let output_any: &dyn Any = &output;
-            !output_any.is::<()>()
-        };
-
-        if display {
-            println!("{:?}", output);
-        }
-    }
-}
-
-fn enforce_closure<F, T>(closure: F) -> F
-where F: FnMut(&str) -> T, T: 'static {
-    closure
-}
-"#;
-
-/// The template used for `--count --loop` input.
-pub const LOOP_COUNT_TEMPLATE: &str = r#"
-#![allow(unused_imports)]
-#![allow(unused_braces)]
-use std::any::Any;
-use std::io::prelude::*;
-
-fn main() {
-    let mut closure = enforce_closure(
-{#{script}}
-    );
-    let mut line_buffer = String::new();
-    let stdin = std::io::stdin();
-    let mut count = 0;
-    loop {
-        line_buffer.clear();
-        let read_res = stdin.read_line(&mut line_buffer).unwrap_or(0);
-        if read_res == 0 { break }
-        count += 1;
-        let output = closure(&line_buffer, count);
-
-        let display = {
-            let output_any: &dyn Any = &output;
-            !output_any.is::<()>()
-        };
-
-        if display {
-            println!("{:?}", output);
-        }
-    }
-}
-
-fn enforce_closure<F, T>(closure: F) -> F
-where F: FnMut(&str, usize) -> T, T: 'static {
-    closure
-}
-"#;
 
 pub fn list() -> MainResult<()> {
     use std::ffi::OsStr;
