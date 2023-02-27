@@ -125,7 +125,7 @@ fn parse_args() -> MainResult<Args> {
         )
         .arg(
             Arg::new("expr")
-                .help("Execute <script> as a literal expression and display the result")
+                .help("Execute <script> as a literal expression and display the result (unstable)")
                 .long("expr")
                 .short('e')
                 .action(clap::ArgAction::SetTrue)
@@ -180,14 +180,14 @@ fn parse_args() -> MainResult<Args> {
         )
         .arg(
             Arg::new("test")
-                .help("Compile and run tests")
+                .help("Compile and run tests (unstable)")
                 .long("test")
                 .action(clap::ArgAction::SetTrue)
                 .conflicts_with_all(["bench", "force"]),
         )
         .arg(
             Arg::new("bench")
-                .help("Compile and run benchmarks. Requires a nightly toolchain")
+                .help("Compile and run benchmarks. Requires a nightly toolchain (unstable)")
                 .long("bench")
                 .action(clap::ArgAction::SetTrue)
                 .conflicts_with_all(["test", "force"]),
@@ -201,7 +201,7 @@ fn parse_args() -> MainResult<Args> {
         )
         .arg(
             Arg::new("toolchain-version")
-                .help("Build the script using the given toolchain version")
+                .help("Build the script using the given toolchain version (unstable)")
                 .long("toolchain-version")
                 // "channel"
                 .short('c')
