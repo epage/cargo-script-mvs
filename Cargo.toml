@@ -46,7 +46,7 @@ toml = "0.7"
 anyhow = "1.0.69"
 
 [target.'cfg(windows)'.dependencies]
-winreg = "0.10"
+winreg = "0.11"
 
 [target.'cfg(unix)'.dependencies]
 atty = "0.2"
