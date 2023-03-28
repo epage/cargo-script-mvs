@@ -1,12 +1,7 @@
-///  Template support.
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::fs;
 
-use anyhow::Context as _;
 use regex::Regex;
-
-use crate::dirs;
 
 static RE_SUB: once_cell::sync::Lazy<Regex> =
     once_cell::sync::Lazy::new(|| Regex::new(r#"#\{([A-Za-z_][A-Za-z0-9_]*)}"#).unwrap());
@@ -44,32 +39,10 @@ pub fn expand(src: &str, subs: &HashMap<&str, &str>) -> anyhow::Result<String> {
 
 /// Attempts to locate and load the contents of the specified template.
 pub fn get_template(name: &str) -> anyhow::Result<Cow<'static, str>> {
-    use std::io::Read;
-
-    let base = dirs::templates_dir()?;
-
-    let file = fs::File::open(base.join(format!("{name}.rs")))
-        .map_err(anyhow::Error::from)
-        .with_context(|| {
-            format!(
-                "template file `{}.rs` does not exist in {}",
-                name,
-                base.display()
-            )
-        });
-
-    // If the template is one of the built-in ones, do fallback if it wasn't found on disk.
-    if file.is_err() {
-        if let Some(text) = builtin_template(name) {
-            return Ok(text.into());
-        }
+    if let Some(text) = builtin_template(name) {
+        return Ok(text.into());
     }
-
-    let mut file = file?;
-
-    let mut text = String::new();
-    file.read_to_string(&mut text)?;
-    Ok(text.into())
+    anyhow::bail!("No such template: {name}");
 }
 
 fn builtin_template(name: &str) -> Option<&'static str> {
@@ -112,48 +85,3 @@ fn try_main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 "#;
-
-// Regarding the loop templates: what I *want* is for the result of the closure to be printed to standard output *only* if it's not `()`.
-//
-// TODO: Merge the `LOOP_*` templates so there isn't duplicated code.  It's icky.
-
-pub fn list() -> anyhow::Result<()> {
-    use std::ffi::OsStr;
-
-    let t_path = dirs::templates_dir()?;
-
-    if !t_path.exists() {
-        fs::create_dir_all(&t_path)?;
-    }
-
-    println!("Listing templates in {}", t_path.display());
-
-    if !t_path.exists() {
-        anyhow::bail!(
-            "cannot list template directory `{}`: it does not exist",
-            t_path.display()
-        )
-    }
-
-    if !t_path.is_dir() {
-        anyhow::bail!(
-            "cannot list template directory `{}`: it is not a directory",
-            t_path.display()
-        )
-    }
-
-    for entry in fs::read_dir(&t_path)? {
-        let entry = entry?;
-        if !entry.file_type()?.is_file() {
-            continue;
-        }
-        let f_path = entry.path();
-        if f_path.extension() != Some(OsStr::new("rs")) {
-            continue;
-        }
-        if let Some(stem) = f_path.file_stem() {
-            println!("{}", stem.to_string_lossy());
-        }
-    }
-    Ok(())
-}

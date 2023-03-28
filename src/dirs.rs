@@ -27,15 +27,3 @@ pub fn generated_projects_cache_path() -> anyhow::Result<PathBuf> {
 pub fn binary_cache_path() -> anyhow::Result<PathBuf> {
     cache_dir().map(|dir| dir.join("binaries"))
 }
-
-pub fn templates_dir() -> anyhow::Result<PathBuf> {
-    if cfg!(debug_assertions) {
-        if let Some(path) = std::env::var_os("RUST_SCRIPT_DEBUG_TEMPLATE_PATH") {
-            return Ok(path.into());
-        }
-    }
-
-    dirs_next::data_local_dir()
-        .map(|dir| dir.join(env!("CARGO_PKG_NAME")).join("templates"))
-        .ok_or_else(|| anyhow::format_err!("Cannot get cache directory"))
-}

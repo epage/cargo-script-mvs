@@ -41,8 +41,6 @@ struct Args {
     debug: bool,
     force: bool,
     build_kind: BuildKind,
-    template: Option<String>,
-    list_templates: bool,
     // This is a String instead of an enum since one can have custom
     // toolchains (ex. a rustc developer will probably have `stage1`):
     toolchain_version: Option<String>,
@@ -104,21 +102,16 @@ fn parse_args() -> anyhow::Result<Args> {
                 .required_unless_present_any(if cfg!(windows) {
                     vec![
                         "clear-cache",
-                        "list-templates",
                         "install-file-association",
                         "uninstall-file-association",
                     ]
                 } else {
-                    vec!["clear-cache", "list-templates"]
+                    vec!["clear-cache"]
                 })
                 .conflicts_with_all(if cfg!(windows) {
-                    vec![
-                        "list-templates",
-                        "install-file-association",
-                        "uninstall-file-association",
-                    ]
+                    vec!["install-file-association", "uninstall-file-association"]
                 } else {
-                    vec!["list-templates"]
+                    vec![]
                 })
                 .num_args(1..)
                 .trailing_var_arg(true),
@@ -193,13 +186,6 @@ fn parse_args() -> anyhow::Result<Args> {
                 .conflicts_with_all(["test", "force"]),
         )
         .arg(
-            Arg::new("template")
-                .help("Specify a template to use for expression scripts")
-                .long("template")
-                .short('t')
-                .requires("expr"),
-        )
-        .arg(
             Arg::new("toolchain-version")
                 .help("Build the script using the given toolchain version (unstable)")
                 .long("toolchain-version")
@@ -207,12 +193,6 @@ fn parse_args() -> anyhow::Result<Args> {
                 .short('c')
                 // FIXME: remove if benchmarking is stabilized
                 .conflicts_with("bench"),
-        )
-        .arg(
-            Arg::new("list-templates")
-                .help("List the available templates")
-                .long("list-templates")
-                .action(clap::ArgAction::SetTrue),
         )
         .arg(
             Arg::new("unstable_flags")
@@ -315,8 +295,6 @@ fn parse_args() -> anyhow::Result<Args> {
         debug: !m.get_flag("release"),
         force: *m.get_one::<bool>("force").expect("defaulted"),
         build_kind,
-        template: m.get_one::<String>("template").map(Into::into),
-        list_templates: *m.get_one::<bool>("list-templates").expect("defaulted"),
         toolchain_version,
         #[cfg(windows)]
         install_file_association: *m
@@ -368,11 +346,6 @@ fn try_main() -> anyhow::Result<i32> {
         }
     }
 
-    if args.list_templates {
-        templates::list()?;
-        return Ok(0);
-    }
-
     // Take the arguments and work out what our input is going to be.
     // Primarily, this gives us the content, a user-friendly name, and a cache-friendly ID.
     // These three are just storage for the borrows we'll actually use.
@@ -404,7 +377,7 @@ fn try_main() -> anyhow::Result<i32> {
                     anyhow::format_err!("expr must be UTF-8, got {}", expr.to_string_lossy())
                 })?
                 .to_owned();
-            Input::Expr(expr, args.template.clone())
+            Input::Expr(expr)
         }
     };
     log::trace!("input: {:?}", input);
@@ -871,7 +844,7 @@ pub enum Input {
     /// The input is an expression.
     ///
     /// The tuple member is: the script contents, and the template (if any).
-    Expr(String, Option<String>),
+    Expr(String),
 }
 
 impl Input {
@@ -950,12 +923,8 @@ impl Input {
                 id.push(&*digest);
                 id
             }
-            Self::Expr(content, template) => {
+            Self::Expr(content) => {
                 let mut hasher = Sha1::new();
-
-                hasher.update("template:");
-                hasher.update(template.as_deref().unwrap_or(""));
-                hasher.update(";");
 
                 hasher.update(content);
                 let mut digest = format!("{:x}", hasher.finalize());

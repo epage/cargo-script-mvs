@@ -55,8 +55,8 @@ pub fn split_input(input: &Input, input_id: &OsString) -> anyhow::Result<(String
             };
             (manifest, source, templates::get_template("file")?)
         }
-        Input::Expr(content, template) => {
-            template_buf = templates::get_template(template.as_deref().unwrap_or("expr"))?;
+        Input::Expr(content) => {
+            template_buf = templates::get_template("expr")?;
             let (manifest, template_src) = find_embedded_manifest(&template_buf)
                 .unwrap_or((Manifest::Toml(""), &template_buf));
             (manifest, content.to_string(), template_src.into())
