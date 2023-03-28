@@ -928,8 +928,8 @@ fn merge_manifest(
     return Ok(into_t);
 
     fn as_table_mut(t: &mut toml::Value) -> Option<&mut toml::value::Table> {
-        match *t {
-            toml::Value::Table(ref mut t) => Some(t),
+        match t {
+            toml::Value::Table(t) => Some(t),
             _ => None,
         }
     }
@@ -950,7 +950,7 @@ fn fix_manifest_paths(mani: toml::value::Table, base: &Path) -> anyhow::Result<t
 
     for path in paths {
         iterate_toml_mut_path(&mut mani, path, &mut |v| {
-            if let toml::Value::String(ref mut s) = *v {
+            if let toml::Value::String(s) = v {
                 if Path::new(s).is_relative() {
                     let p = base.join(&*s);
                     if let Some(p) = p.to_str() {
@@ -985,12 +985,12 @@ where
     let tail = &path[1..];
 
     if cur == "*" {
-        if let toml::Value::Table(ref mut tab) = *base {
+        if let toml::Value::Table(tab) = base {
             for (_, v) in tab {
                 iterate_toml_mut_path(v, tail, on_each)?;
             }
         }
-    } else if let toml::Value::Table(ref mut tab) = *base {
+    } else if let toml::Value::Table(tab) = base {
         if let Some(v) = tab.get_mut(cur) {
             iterate_toml_mut_path(v, tail, on_each)?;
         }
