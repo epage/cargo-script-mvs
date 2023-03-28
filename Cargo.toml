@@ -1,6 +1,6 @@
 [package]
 name = "rust-script"
-version = "0.22.0"
+version = "0.23.0"
 description = "Command-line tool to run Rust \"scripts\" which can make use of crates."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/epage/cargo-script-mvs"
@@ -9,7 +9,7 @@ documentation = "https://github.com/epage/cargo-script-mvs/blob/main/docs/README
 readme = "docs/README.md"
 categories = ["command-line-utilities", "development-tools"]
 keywords = ["cargo", "script"]
-edition = "2018"
+edition = "2021"
 rust-version = "1.64.0"  # MSRV
 include = [
   "build.rs",

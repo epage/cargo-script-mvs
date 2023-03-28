@@ -17,6 +17,8 @@ mod file_assoc {}
 use std::ffi::OsString;
 use std::fs;
 use std::io::{BufWriter, Read, Write};
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -331,15 +333,13 @@ fn parse_args() -> anyhow::Result<Args> {
 fn main() {
     env_logger::init();
 
-    let stderr = &mut std::io::stderr();
-
     match try_main() {
-        Ok(0) => (),
         Ok(code) => {
             std::process::exit(code);
         }
         Err(ref err) => {
-            writeln!(stderr, "error: {err}").unwrap();
+            let stderr = &mut std::io::stderr();
+            let _ = writeln!(stderr, "error: {err}");
             std::process::exit(1);
         }
     }
@@ -373,7 +373,8 @@ fn try_main() -> anyhow::Result<i32> {
         return Ok(0);
     }
 
-    // Take the arguments and work out what our input is going to be.  Primarily, this gives us the content, a user-friendly name, and a cache-friendly ID.
+    // Take the arguments and work out what our input is going to be.
+    // Primarily, this gives us the content, a user-friendly name, and a cache-friendly ID.
     // These three are just storage for the borrows we'll actually use.
     let script_name: String;
     let script_path: PathBuf;
@@ -436,17 +437,19 @@ fn try_main() -> anyhow::Result<i32> {
         })
     };
 
-    let exit_code = {
-        let cmd_name = action.build_kind.exec_command();
-        log::trace!("running `cargo {}`", cmd_name);
+    let run_quietly = !action.cargo_output;
+    let mut cmd = action.cargo(action.build_kind, &args.script_args, run_quietly)?;
 
-        let run_quietly = !action.cargo_output;
-        let mut cmd = action.cargo(cmd_name, &args.script_args, run_quietly)?;
-
-        cmd.status().map(|st| st.code().unwrap_or(1))?
-    };
-
-    Ok(exit_code)
+    #[cfg(unix)]
+    {
+        let err = cmd.exec();
+        Err(err.into())
+    }
+    #[cfg(not(unix))]
+    {
+        let exit_code = cmd.status().map(|st| st.code().unwrap_or(1))?;
+        Ok(exit_code)
+    }
 }
 
 /// How old can stuff in the cache be before we automatically clear it out?
@@ -656,12 +659,12 @@ impl InputAction {
 
     fn cargo(
         &self,
-        cmd: &str,
+        build_kind: BuildKind,
         script_args: &[OsString],
         run_quietly: bool,
     ) -> anyhow::Result<Command> {
         cargo(
-            cmd,
+            build_kind,
             &self.manifest_path().to_string_lossy(),
             self.toolchain_version.as_deref(),
             &self.metadata,
@@ -679,9 +682,6 @@ impl InputAction {
 struct PackageMetadata {
     /// Path to the script file.
     path: Option<String>,
-
-    /// Template used.
-    template: Option<String>,
 
     /// Was the script compiled in debug mode?
     debug: bool,
@@ -723,9 +723,9 @@ fn decide_action_for(input: &Input, args: &Args) -> anyhow::Result<InputAction> 
     };
 
     let input_meta = {
-        let (path, template) = match input {
-            Input::File(_, path, _) => (Some(path.to_string_lossy().into_owned()), None),
-            Input::Expr(_, template) => (None, template.clone()),
+        let path = match input {
+            Input::File(_, path, _) => Some(path.to_string_lossy().into_owned()),
+            _ => None,
         };
         let features = if args.features.is_empty() {
             None
@@ -734,7 +734,6 @@ fn decide_action_for(input: &Input, args: &Args) -> anyhow::Result<InputAction> 
         };
         PackageMetadata {
             path,
-            template,
             debug,
             features,
             manifest_hash: hash_str(&mani_str),
@@ -838,32 +837,26 @@ where
     Ok(())
 }
 
-/// Attempts to locate the script specified by the given path.  If the path as-given doesn't yield anything, it will try adding file extensions.
+/// Attempts to locate the script specified by the given path.
 fn find_script<P>(path: P) -> Option<(PathBuf, fs::File)>
 where
     P: AsRef<Path>,
 {
     let path = path.as_ref();
 
-    // Try the path directly.
     if let Ok(file) = fs::File::open(path) {
         return Some((path.into(), file));
     }
 
-    // If it had an extension, don't bother trying any others.
-    if path.extension().is_some() {
-        return None;
-    }
-
-    // Ok, now try other extensions.
-    for ext in ["ers", "rs"] {
-        let path = path.with_extension(ext);
-        if let Ok(file) = fs::File::open(&path) {
-            return Some((path, file));
+    if path.extension().is_none() {
+        for ext in ["ers", "rs"] {
+            let path = path.with_extension(ext);
+            if let Ok(file) = fs::File::open(&path) {
+                return Some((path, file));
+            }
         }
     }
 
-    // Welp. ¯\_(ツ)_/¯
     None
 }
 
@@ -1019,7 +1012,7 @@ where
 
 /// Constructs a Cargo command that runs on the script package.
 fn cargo(
-    cmd_name: &str,
+    build_kind: BuildKind,
     manifest: &str,
     toolchain_version: Option<&str>,
     meta: &PackageMetadata,
@@ -1047,9 +1040,9 @@ fn cargo(
         log::trace!("setting RUST_BACKTRACE=1 for this cargo run");
     }
 
-    cmd.arg(cmd_name);
+    cmd.arg(build_kind.exec_command());
 
-    if cmd_name == "run" && run_quietly {
+    if matches!(build_kind, BuildKind::Normal) && run_quietly {
         cmd.arg("-q");
     }
 
@@ -1064,7 +1057,7 @@ fn cargo(
     cmd.arg(cargo_target_dir);
 
     // Block `--release` on `bench`.
-    if !meta.debug && cmd_name != "bench" {
+    if !meta.debug && !matches!(build_kind, BuildKind::Bench) {
         cmd.arg("--release");
     }
 
@@ -1072,7 +1065,7 @@ fn cargo(
         cmd.arg("--features").arg(features);
     }
 
-    if cmd_name == "run" && !script_args.is_empty() {
+    if matches!(build_kind, BuildKind::Normal) && !script_args.is_empty() {
         cmd.arg("--");
         cmd.args(script_args.iter());
     }

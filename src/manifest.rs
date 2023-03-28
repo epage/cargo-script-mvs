@@ -120,7 +120,7 @@ name = "n_input_id"
 path = "n.rs"
 
 [package]
-edition = "2018"
+edition = "2021"
 name = "n"
 version = "0.1.0"
 
@@ -143,7 +143,7 @@ name = "n_input_id"
 path = "n.rs"
 
 [package]
-edition = "2018"
+edition = "2021"
 name = "n"
 version = "0.1.0"
 
@@ -169,7 +169,7 @@ name = "n_input_id"
 path = "n.rs"
 
 [package]
-edition = "2018"
+edition = "2021"
 name = "n"
 version = "0.1.0"
 
@@ -205,7 +205,7 @@ path = "n.rs"
 time = "0.1.25"
 
 [package]
-edition = "2018"
+edition = "2021"
 name = "n"
 version = "0.1.0"
 
@@ -873,7 +873,7 @@ pub const DEFAULT_MANIFEST: &str = r##"
 [package]
 name = "#{name}"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [[bin]]
 name = "#{bin_name}"
