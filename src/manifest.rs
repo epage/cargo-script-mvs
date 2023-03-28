@@ -123,6 +123,9 @@ path = "n.rs"
 edition = "2018"
 name = "n"
 version = "0.1.0"
+
+[profile.release]
+strip = true
 "#,
             r#"fn main() {}"#
         )
@@ -143,6 +146,9 @@ path = "n.rs"
 edition = "2018"
 name = "n"
 version = "0.1.0"
+
+[profile.release]
+strip = true
 "#,
             r#"
 ---
@@ -166,6 +172,9 @@ path = "n.rs"
 edition = "2018"
 name = "n"
 version = "0.1.0"
+
+[profile.release]
+strip = true
 "#,
             r#"[dependencies]
 time="0.1.25"
@@ -199,6 +208,9 @@ time = "0.1.25"
 edition = "2018"
 name = "n"
 version = "0.1.0"
+
+[profile.release]
+strip = true
 "#,
             r#"
 /*!
@@ -866,6 +878,9 @@ edition = "2018"
 [[bin]]
 name = "#{bin_name}"
 path = "#{file}.rs"
+
+[profile.release]
+strip = true
 "##;
 
 /// Substitution for the identifier-safe package name of the script.
