@@ -346,19 +346,13 @@ fn try_main() -> anyhow::Result<i32> {
         }
     }
 
-    // Take the arguments and work out what our input is going to be.
-    // Primarily, this gives us the content, a user-friendly name, and a cache-friendly ID.
-    // These three are just storage for the borrows we'll actually use.
-    let script_name: String;
-    let script_path: PathBuf;
-
     let input = match (args.script.clone().unwrap(), args.expr) {
         (script, false) => {
             let (path, mut file) = find_script(&script).ok_or_else(|| {
                 anyhow::format_err!("could not find script: {}", script.to_string_lossy())
             })?;
 
-            script_name = path
+            let script_name = path
                 .file_stem()
                 .map(|os| os.to_string_lossy().into_owned())
                 .unwrap_or_else(|| "unknown".into());
@@ -366,7 +360,7 @@ fn try_main() -> anyhow::Result<i32> {
             let mut body = String::new();
             file.read_to_string(&mut body)?;
 
-            script_path = std::env::current_dir()?.join(path);
+            let script_path = std::env::current_dir()?.join(path);
 
             Input::File(script_name, script_path, body)
         }
