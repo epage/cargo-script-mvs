@@ -1,8 +1,5 @@
 #![forbid(unsafe_code)]
 
-/// If this is set to `false`, then code that automatically deletes stuff *won't*.
-const ALLOW_AUTO_REMOVE: bool = true;
-
 mod arguments;
 mod build_kind;
 mod dirs;
@@ -150,7 +147,7 @@ fn clean_cache() -> anyhow::Result<()> {
     log::info!("cleaning cache");
 
     let cache_dir = dirs::binary_cache_path()?;
-    if ALLOW_AUTO_REMOVE && cache_dir.exists() {
+    if cache_dir.exists() {
         if let Err(err) = fs::remove_dir_all(&cache_dir) {
             log::error!("failed to remove binary cache {:?}: {}", cache_dir, err);
         }
@@ -212,12 +209,8 @@ fn gc_cache(max_age: std::time::Duration) -> anyhow::Result<()> {
 
             if remove_dir() {
                 log::debug!("removing {:?}", path);
-                if ALLOW_AUTO_REMOVE {
-                    if let Err(err) = fs::remove_dir_all(&path) {
-                        log::error!("failed to remove {:?} from cache: {}", path, err);
-                    }
-                } else {
-                    log::debug!("(suppressed remove)");
+                if let Err(err) = fs::remove_dir_all(&path) {
+                    log::error!("failed to remove {:?} from cache: {}", path, err);
                 }
             }
         }
@@ -244,11 +237,7 @@ fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> anyhow::Result<()
         // DO NOT try deleting ANYTHING if we're not cleaning up inside our own cache.  We *DO NOT* want to risk killing user files.
         if action.using_cache {
             log::debug!("cleaning up cache directory {}", pkg_path.display());
-            if ALLOW_AUTO_REMOVE {
-                fs::remove_dir_all(pkg_path)?;
-            } else {
-                log::debug!("(suppressed remove)");
-            }
+            fs::remove_dir_all(pkg_path)?;
         }
         Ok(())
     });
@@ -391,15 +380,12 @@ fn decide_action_for(input: &Input, args: &Args) -> anyhow::Result<InputAction> 
     let input_id = input.compute_id();
     log::trace!("id: {:?}", input_id);
 
-    let (pkg_path, using_cache) = args
-        .pkg_path
-        .as_ref()
-        .map(|p| (p.into(), false))
-        .unwrap_or_else(|| {
-            // This can't fail.  Seriously, we're *fucked* if we can't work this out.
-            let cache_path = dirs::generated_projects_cache_path().unwrap();
-            (cache_path.join(&input_id), true)
-        });
+    let (pkg_path, using_cache) = if let Some(pkg_path) = args.pkg_path.as_deref() {
+        (pkg_path.to_owned(), false)
+    } else {
+        let cache_path = dirs::generated_projects_cache_path()?;
+        (cache_path.join(&input_id), true)
+    };
     log::trace!("pkg_path: {}", pkg_path.display());
     log::trace!("using_cache: {}", using_cache);
 
@@ -454,21 +440,13 @@ fn decide_action_for(input: &Input, args: &Args) -> anyhow::Result<InputAction> 
         build_kind: args.build_kind,
     };
 
-    macro_rules! bail {
-        ($($name:ident: $value:expr),*) => {
-            return Ok(InputAction {
-                $($name: $value,)*
-                ..action
-            })
-        }
-    }
-
     // If we're not doing a regular build, stop.
     match action.build_kind {
         BuildKind::Normal => (),
         BuildKind::Test | BuildKind::Bench => {
             log::debug!("not recompiling because: user asked for test/bench");
-            bail!(force_compile: false)
+            action.force_compile = false;
+            return Ok(action);
         }
     }
 
