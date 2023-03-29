@@ -35,109 +35,109 @@ impl Args {
         let about = r#"Compiles and runs a Rust script"#;
 
         let app = Command::new(env!("CARGO_PKG_NAME"))
-        .version(env!("CARGO_PKG_VERSION"))
-        .about(about)
-        .arg(
-            Arg::new("script")
-                .help("Script file or expression to execute")
-                .value_parser(clap::value_parser!(OsString))
-                .required_unless_present_any(if cfg!(windows) {
-                    vec![
-                        "clear-cache",
-                        "install-file-association",
-                        "uninstall-file-association",
-                    ]
-                } else {
-                    vec!["clear-cache"]
-                })
-                .conflicts_with_all(if cfg!(windows) {
-                    vec!["install-file-association", "uninstall-file-association"]
-                } else {
-                    vec![]
-                })
-                .num_args(1..)
-                .trailing_var_arg(true),
-        )
-        .arg(
-            Arg::new("expr")
-                .help("Execute <script> as a literal expression and display the result (unstable)")
-                .long("expr")
-                .short('e')
-                .action(clap::ArgAction::SetTrue)
-                .requires("script"),
-        )
-        // Options that impact the script being executed.
-        .arg(
-            Arg::new("cargo-output")
-                .help("Show output from cargo when building")
-                .short('o')
-                .long("cargo-output")
-                .action(clap::ArgAction::SetTrue)
-                .requires("script"),
-        )
-        // Set the default debug variable to false
-        .arg(
-            Arg::new("release")
-                .help("Build a release executable, an optimised one")
-                .short('r')
-                .long("release")
-                .action(clap::ArgAction::SetTrue)
-                .conflicts_with_all(["bench"]),
-        )
-        // Options that change how rust-script itself behaves, and don't alter what the script will do.
-        .arg(
-            Arg::new("clear-cache")
-                .help("Clears out the script cache")
-                .long("clear-cache")
-                .action(clap::ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::new("force")
-                .help("Force the script to be rebuilt")
-                .long("force")
-                .action(clap::ArgAction::SetTrue)
-                .requires("script"),
-        )
-        .arg(
-            Arg::new("pkg_path")
-                .help("Specify where to place the generated Cargo package")
-                .long("pkg-path")
-                .value_parser(clap::value_parser!(PathBuf))
-                .requires("script")
-                .conflicts_with_all(["clear-cache", "force"]),
-        )
-        .arg(
-            Arg::new("test")
-                .help("Compile and run tests (unstable)")
-                .long("test")
-                .action(clap::ArgAction::SetTrue)
-                .conflicts_with_all(["bench", "force"]),
-        )
-        .arg(
-            Arg::new("bench")
-                .help("Compile and run benchmarks. Requires a nightly toolchain (unstable)")
-                .long("bench")
-                .action(clap::ArgAction::SetTrue)
-                .conflicts_with_all(["test", "force"]),
-        )
-        .arg(
-            Arg::new("toolchain-version")
-                .help("Build the script using the given toolchain version (unstable)")
-                .long("toolchain-version")
-                // "channel"
-                .short('c')
-                // FIXME: remove if benchmarking is stabilized
-                .conflicts_with("bench"),
-        )
-        .arg(
-            Arg::new("unstable_flags")
-                .help("Unstable (nightly-only) flags")
-                .short('Z')
-                .value_name("FLAG")
-                .global(true)
-                .value_parser(clap::value_parser!(UnstableFlags))
-                .action(clap::ArgAction::Append),
-        );
+            .version(env!("CARGO_PKG_VERSION"))
+            .about(about)
+            .arg(
+                Arg::new("script")
+                    .help("Script file or expression to execute")
+                    .value_parser(clap::value_parser!(OsString))
+                    .required_unless_present_any(if cfg!(windows) {
+                        &[
+                            "clear-cache",
+                            "install-file-association",
+                            "uninstall-file-association",
+                        ][..]
+                    } else {
+                        &["clear-cache"][..]
+                    })
+                    .conflicts_with_all(if cfg!(windows) {
+                        &["install-file-association", "uninstall-file-association"][..]
+                    } else {
+                        &[][..]
+                    })
+                    .num_args(1..)
+                    .trailing_var_arg(true),
+            )
+            .arg(
+                Arg::new("expr")
+                    .help("Execute <script> as a literal expression and display the result (unstable)")
+                    .long("expr")
+                    .short('e')
+                    .action(clap::ArgAction::SetTrue)
+                    .requires("script"),
+            )
+            // Options that impact the script being executed.
+            .arg(
+                Arg::new("cargo-output")
+                    .help("Show output from cargo when building")
+                    .short('o')
+                    .long("cargo-output")
+                    .action(clap::ArgAction::SetTrue)
+                    .requires("script"),
+            )
+            // Set the default debug variable to false
+            .arg(
+                Arg::new("release")
+                    .help("Build a release executable, an optimised one")
+                    .short('r')
+                    .long("release")
+                    .action(clap::ArgAction::SetTrue)
+                    .conflicts_with_all(["bench"]),
+            )
+            // Options that change how rust-script itself behaves, and don't alter what the script will do.
+            .arg(
+                Arg::new("clear-cache")
+                    .help("Clears out the script cache")
+                    .long("clear-cache")
+                    .action(clap::ArgAction::SetTrue),
+            )
+            .arg(
+                Arg::new("force")
+                    .help("Force the script to be rebuilt")
+                    .long("force")
+                    .action(clap::ArgAction::SetTrue)
+                    .requires("script"),
+            )
+            .arg(
+                Arg::new("pkg_path")
+                    .help("Specify where to place the generated Cargo package")
+                    .long("pkg-path")
+                    .value_parser(clap::value_parser!(PathBuf))
+                    .requires("script")
+                    .conflicts_with_all(["clear-cache", "force"]),
+            )
+            .arg(
+                Arg::new("test")
+                    .help("Compile and run tests (unstable)")
+                    .long("test")
+                    .action(clap::ArgAction::SetTrue)
+                    .conflicts_with_all(["bench", "force"]),
+            )
+            .arg(
+                Arg::new("bench")
+                    .help("Compile and run benchmarks. Requires a nightly toolchain (unstable)")
+                    .long("bench")
+                    .action(clap::ArgAction::SetTrue)
+                    .conflicts_with_all(["test", "force"]),
+            )
+            .arg(
+                Arg::new("toolchain-version")
+                    .help("Build the script using the given toolchain version (unstable)")
+                    .long("toolchain-version")
+                    // "channel"
+                    .short('c')
+                    // FIXME: remove if benchmarking is stabilized
+                    .conflicts_with("bench"),
+            )
+            .arg(
+                Arg::new("unstable_flags")
+                    .help("Unstable (nightly-only) flags")
+                    .short('Z')
+                    .value_name("FLAG")
+                    .global(true)
+                    .value_parser(clap::value_parser!(UnstableFlags))
+                    .action(clap::ArgAction::Append),
+            );
 
         #[cfg(windows)]
         let app = app
