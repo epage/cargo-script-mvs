@@ -1,6 +1,5 @@
 //! Extracting the manifest from a script file.
 use std::collections::HashMap;
-use std::ffi::OsString;
 use std::path::Path;
 
 use anyhow::Context as _;
@@ -30,7 +29,7 @@ static RE_CRATE_COMMENT: once_cell::sync::Lazy<Regex> = once_cell::sync::Lazy::n
 /// Splits input into a complete Cargo manifest and unadultered Rust source.
 ///
 /// Unless we have prelude items to inject, in which case it will be *slightly* adulterated.
-pub fn split_input(input: &Input, input_id: &OsString) -> anyhow::Result<(String, String)> {
+pub fn split_input(input: &Input, bin_name: &str) -> anyhow::Result<(String, String)> {
     fn contains_main_method(line: &str) -> bool {
         let line = line.trim_start();
         line.starts_with("fn main(")
@@ -76,7 +75,7 @@ pub fn split_input(input: &Input, input_id: &OsString) -> anyhow::Result<(String
     log::trace!("part_mani: {:?}", part_mani);
 
     // It's-a mergin' time!
-    let def_mani = default_manifest(input, input_id)?;
+    let def_mani = default_manifest(input, bin_name)?;
     let mani = merge_manifest(def_mani, part_mani)?;
 
     // Fix up relative paths.
@@ -94,10 +93,10 @@ pub const SCRIPT_BODY_SUB: &str = "script";
 
 #[test]
 fn test_split_input() {
-    let input_id = OsString::from("input_id");
+    let bin_name = "binary-name";
     macro_rules! si {
         ($i:expr) => {
-            split_input(&$i, &input_id).ok()
+            split_input(&$i, bin_name).ok()
         };
     }
 
@@ -116,7 +115,7 @@ fn test_split_input() {
         si!(f(r#"fn main() {}"#)),
         r!(
             r#"[[bin]]
-name = "n_input_id"
+name = "binary-name"
 path = "n.rs"
 
 [package]
@@ -139,7 +138,7 @@ fn main() {}
 "#)),
         r!(
             r#"[[bin]]
-name = "n_input_id"
+name = "binary-name"
 path = "n.rs"
 
 [package]
@@ -165,7 +164,7 @@ fn main() {}
 "#)),
         r!(
             r#"[[bin]]
-name = "n_input_id"
+name = "binary-name"
 path = "n.rs"
 
 [package]
@@ -198,7 +197,7 @@ fn main() {}
 "#)),
         r!(
             r#"[[bin]]
-name = "n_input_id"
+name = "binary-name"
 path = "n.rs"
 
 [dependencies]
@@ -854,13 +853,12 @@ time = "*"
 }
 
 /// Generates a default Cargo manifest for the given input.
-fn default_manifest(input: &Input, input_id: &OsString) -> anyhow::Result<toml::value::Table> {
+fn default_manifest(input: &Input, bin_name: &str) -> anyhow::Result<toml::value::Table> {
     let mani_str = {
         let pkg_name = input.package_name();
-        let bin_name = format!("{}_{}", &*pkg_name, input_id.to_str().unwrap());
         let mut subs = HashMap::with_capacity(3);
         subs.insert(MANI_NAME_SUB, &*pkg_name);
-        subs.insert(MANI_BIN_NAME_SUB, &*bin_name);
+        subs.insert(MANI_BIN_NAME_SUB, bin_name);
         subs.insert(MANI_FILE_SUB, input.safe_name());
         templates::expand(DEFAULT_MANIFEST, &subs)?
     };

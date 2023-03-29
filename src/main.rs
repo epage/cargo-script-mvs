@@ -124,7 +124,7 @@ fn try_main() -> anyhow::Result<i32> {
     };
 
     let run_quietly = !action.cargo_output;
-    let mut cmd = action.cargo(action.build_kind, &args.script_args, run_quietly)?;
+    let mut cmd = action.cargo(&action, &args.script_args, run_quietly)?;
 
     #[cfg(unix)]
     {
@@ -223,9 +223,8 @@ fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> anyhow::Result<()
     let mani_path = action.manifest_path();
     let script_path = pkg_path.join(format!("{}.rs", input.safe_name()));
 
-    let anything_changed =
-        overwrite_file(mani_path, mani_str)? | overwrite_file(script_path, script_str)?;
-    log::trace!("anything changed? {}", anything_changed);
+    overwrite_file(mani_path, mani_str)?;
+    overwrite_file(script_path, script_str)?;
 
     log::trace!("disarming pkg dir cleanup...");
     cleanup_dir.disarm();
@@ -268,6 +267,9 @@ struct InputAction {
 
     /// Did the user ask to run tests or benchmarks?
     build_kind: BuildKind,
+
+    // Name of the built binary
+    bin_name: String,
 }
 
 impl InputAction {
@@ -275,20 +277,104 @@ impl InputAction {
         self.pkg_path.join("Cargo.toml")
     }
 
+    fn script_path(&self) -> PathBuf {
+        self.pkg_path.join("main.rs")
+    }
+
     fn cargo(
         &self,
-        build_kind: BuildKind,
+        action: &InputAction,
         script_args: &[OsString],
         run_quietly: bool,
     ) -> anyhow::Result<Command> {
-        cargo(
-            build_kind,
-            &self.manifest_path().to_string_lossy(),
-            self.toolchain_version.as_deref(),
-            &self.metadata,
-            script_args,
-            run_quietly,
-        )
+        let release_mode = !self.metadata.debug && !matches!(action.build_kind, BuildKind::Bench);
+
+        let built_binary_path = dirs::binary_cache_path()?
+            .join(if release_mode { "release" } else { "debug" })
+            .join(&action.bin_name);
+
+        let manifest_path = self.manifest_path();
+
+        let execute_command = || {
+            let mut cmd = Command::new(&built_binary_path);
+            cmd.args(script_args.iter());
+            // Set tracing on if not set
+            if std::env::var_os("RUST_BACKTRACE").is_none() {
+                cmd.env("RUST_BACKTRACE", "1");
+                log::trace!("setting RUST_BACKTRACE=1 for this cargo run");
+            }
+
+            cmd
+        };
+
+        if matches!(action.build_kind, BuildKind::Normal) && !action.force_compile {
+            let script_path = self.script_path();
+
+            match fs::File::open(&built_binary_path) {
+                Ok(built_binary_file) => {
+                    let built_binary_mtime =
+                        built_binary_file.metadata().unwrap().modified().unwrap();
+                    let script_mtime = script_path.metadata()?.modified()?;
+                    let manifest_mtime = manifest_path.metadata()?.modified()?;
+                    if built_binary_mtime.cmp(&script_mtime).is_ge()
+                        && built_binary_mtime.cmp(&manifest_mtime).is_ge()
+                    {
+                        return Ok(execute_command());
+                    }
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                    // Continue
+                }
+                Err(e) => {
+                    return Err(e.into());
+                }
+            }
+        }
+
+        let mut cmd = if let Some(toolchain_version) = self.toolchain_version.as_deref() {
+            if std::env::var_os("RUSTUP_TOOLCHAIN").is_some() {
+                // Running inside rustup which can't always call into rustup proxies, so explicitly call
+                // rustup
+                let mut cmd = Command::new("rustup");
+                cmd.args(["run", toolchain_version, "cargo"]);
+                cmd
+            } else {
+                let mut cmd = Command::new("cargo");
+                cmd.arg(format!("+{toolchain_version}"));
+                cmd
+            }
+        } else {
+            Command::new("cargo")
+        };
+
+        cmd.arg(action.build_kind.exec_command());
+
+        if matches!(action.build_kind, BuildKind::Normal) && run_quietly {
+            cmd.arg("-q");
+        }
+
+        cmd.current_dir(&self.pkg_path);
+
+        if force_cargo_color() {
+            cmd.arg("--color").arg("always");
+        }
+
+        cmd.arg("--target-dir");
+        cmd.arg(dirs::binary_cache_path()?);
+
+        if release_mode {
+            cmd.arg("--release");
+        }
+
+        if matches!(action.build_kind, BuildKind::Normal) {
+            if cmd.status()?.success() {
+                cmd = execute_command();
+            } else {
+                anyhow::bail!("compilation failed")
+            }
+        }
+
+        Ok(cmd)
     }
 }
 
@@ -300,9 +386,6 @@ impl InputAction {
 struct PackageMetadata {
     /// Was the script compiled in debug mode?
     debug: bool,
-
-    /// Cargo features
-    features: Option<String>,
 }
 
 /// For the given input, this constructs the package metadata and checks the cache to see what should be done.
@@ -319,7 +402,10 @@ fn decide_action_for(input: &Input, args: &Args) -> anyhow::Result<InputAction> 
     log::trace!("pkg_path: {}", pkg_path.display());
     log::trace!("using_cache: {}", using_cache);
 
-    let (mani_str, script_str) = manifest::split_input(input, &input_id)?;
+    let pkg_name = input.package_name();
+    let bin_name = format!("{}_{}", &*pkg_name, input_id.to_str().unwrap());
+
+    let (mani_str, script_str) = manifest::split_input(input, &bin_name)?;
 
     // Forcibly override some flags based on build kind.
     let (debug, force) = match args.build_kind {
@@ -328,14 +414,7 @@ fn decide_action_for(input: &Input, args: &Args) -> anyhow::Result<InputAction> 
         BuildKind::Bench => (false, false),
     };
 
-    let input_meta = {
-        let features = if args.features.is_empty() {
-            None
-        } else {
-            Some(args.features.join(" "))
-        };
-        PackageMetadata { debug, features }
-    };
+    let input_meta = { PackageMetadata { debug } };
     log::trace!("input_meta: {:?}", input_meta);
 
     let toolchain_version = args
@@ -356,6 +435,7 @@ fn decide_action_for(input: &Input, args: &Args) -> anyhow::Result<InputAction> 
         manifest: mani_str,
         script: script_str,
         build_kind: args.build_kind,
+        bin_name,
     };
 
     // If we're not doing a regular build, stop.
@@ -505,7 +585,7 @@ impl Input {
 pub const ID_DIGEST_LEN_MAX: usize = 24;
 
 /// Overwrite a file if and only if the contents have changed.
-fn overwrite_file<P>(path: P, content: &str) -> anyhow::Result<bool>
+fn overwrite_file<P>(path: P, content: &str) -> anyhow::Result<()>
 where
     P: AsRef<Path>,
 {
@@ -516,7 +596,7 @@ where
             file.read_to_string(&mut existing_content)?;
             if existing_content == content {
                 log::trace!("Equal content");
-                return Ok(false);
+                return Ok(());
             }
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
@@ -536,70 +616,7 @@ where
     temp_file.write_all(content.as_bytes())?;
     temp_file.flush()?;
     temp_file.persist(path)?;
-    Ok(true)
-}
-
-/// Constructs a Cargo command that runs on the script package.
-fn cargo(
-    build_kind: BuildKind,
-    manifest: &str,
-    toolchain_version: Option<&str>,
-    meta: &PackageMetadata,
-    script_args: &[OsString],
-    run_quietly: bool,
-) -> anyhow::Result<Command> {
-    // Always specify a toolchain to avoid being affected by rust-version(.toml) files:
-    let toolchain_version = toolchain_version.unwrap_or("stable");
-
-    let mut cmd = if std::env::var_os("RUSTUP_TOOLCHAIN").is_some() {
-        // Running inside rustup which can't always call into rustup proxies, so explicitly call
-        // rustup
-        let mut cmd = Command::new("rustup");
-        cmd.args(["run", toolchain_version, "cargo"]);
-        cmd
-    } else {
-        let mut cmd = Command::new("cargo");
-        cmd.arg(format!("+{toolchain_version}"));
-        cmd
-    };
-
-    // Set tracing on if not set
-    if std::env::var_os("RUST_BACKTRACE").is_none() {
-        cmd.env("RUST_BACKTRACE", "1");
-        log::trace!("setting RUST_BACKTRACE=1 for this cargo run");
-    }
-
-    cmd.arg(build_kind.exec_command());
-
-    if matches!(build_kind, BuildKind::Normal) && run_quietly {
-        cmd.arg("-q");
-    }
-
-    cmd.arg("--manifest-path").arg(manifest);
-
-    if force_cargo_color() {
-        cmd.arg("--color").arg("always");
-    }
-
-    let cargo_target_dir = format!("{}", dirs::binary_cache_path()?.display(),);
-    cmd.arg("--target-dir");
-    cmd.arg(cargo_target_dir);
-
-    // Block `--release` on `bench`.
-    if !meta.debug && !matches!(build_kind, BuildKind::Bench) {
-        cmd.arg("--release");
-    }
-
-    if let Some(ref features) = meta.features {
-        cmd.arg("--features").arg(features);
-    }
-
-    if matches!(build_kind, BuildKind::Normal) && !script_args.is_empty() {
-        cmd.arg("--");
-        cmd.args(script_args.iter());
-    }
-
-    Ok(cmd)
+    Ok(())
 }
 
 /// Returns `true` if `rust-script` should force Cargo to use coloured output.

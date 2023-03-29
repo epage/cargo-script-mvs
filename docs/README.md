@@ -29,7 +29,7 @@ Install or update `rust-script` using Cargo:
 cargo install rust-script
 ```
 
-Rust 1.54 or later is required.
+Rust 1.60 or later is required.
 
 ### Distro Packages
 
@@ -76,7 +76,6 @@ Useful command-line arguments:
 
 - `--bench`: Compile and run benchmarks.  Requires a nightly toolchain.
 - `--debug`: Build a debug executable, not an optimised one.
-- `--features <features>`: Cargo features to pass when building and running.
 - `--force`: Force the script to be rebuilt.  Useful if you want to force a recompile with a different toolchain.
 - `--test`: Compile and run tests.
 

@@ -7,7 +7,6 @@ use crate::build_kind::BuildKind;
 pub struct Args {
     pub script: Option<OsString>,
     pub script_args: Vec<OsString>,
-    pub features: Vec<String>,
 
     pub expr: bool,
 
@@ -84,13 +83,6 @@ impl Args {
                 .long("release")
                 .action(clap::ArgAction::SetTrue)
                 .conflicts_with_all(["bench"]),
-        )
-        .arg(
-            Arg::new("features")
-                .help("Cargo features to pass when building and running")
-                .short('F')
-                .long("features")
-                .action(clap::ArgAction::Append),
         )
         // Options that change how rust-script itself behaves, and don't alter what the script will do.
         .arg(
@@ -228,11 +220,6 @@ impl Args {
         Ok(Args {
             script,
             script_args,
-            features: m
-                .get_many::<String>("features")
-                .unwrap_or_default()
-                .map(|s| s.to_owned())
-                .collect(),
 
             expr,
 
