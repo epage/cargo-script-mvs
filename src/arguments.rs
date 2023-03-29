@@ -217,7 +217,7 @@ impl Args {
             )
         }
 
-        Ok(Args {
+        Ok(Self {
             script,
             script_args,
 

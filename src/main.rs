@@ -123,8 +123,7 @@ fn try_main() -> anyhow::Result<i32> {
         })
     };
 
-    let run_quietly = !action.cargo_output;
-    let mut cmd = action.cargo(&action, &args.script_args, run_quietly)?;
+    let mut cmd = action.cargo(&args.script_args)?;
 
     #[cfg(unix)]
     {
@@ -200,8 +199,6 @@ fn gc_cache(max_age: std::time::Duration) -> anyhow::Result<()> {
 }
 
 /// Generate and compile a package from the input.
-///
-/// Why take `PackageMetadata`?  To ensure that any information we need to depend on for compilation *first* passes through `decide_action_for` *and* is less likely to not be serialised with the rest of the metadata.
 fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> anyhow::Result<()> {
     let pkg_path = &action.pkg_path;
 
@@ -223,8 +220,8 @@ fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> anyhow::Result<()
     let mani_path = action.manifest_path();
     let script_path = pkg_path.join(format!("{}.rs", input.safe_name()));
 
-    overwrite_file(mani_path, mani_str)?;
-    overwrite_file(script_path, script_str)?;
+    overwrite_file(&mani_path, mani_str)?;
+    overwrite_file(&script_path, script_str)?;
 
     log::trace!("disarming pkg dir cleanup...");
     cleanup_dir.disarm();
@@ -281,17 +278,12 @@ impl InputAction {
         self.pkg_path.join("main.rs")
     }
 
-    fn cargo(
-        &self,
-        action: &InputAction,
-        script_args: &[OsString],
-        run_quietly: bool,
-    ) -> anyhow::Result<Command> {
-        let release_mode = !self.metadata.debug && !matches!(action.build_kind, BuildKind::Bench);
+    fn cargo(&self, script_args: &[OsString]) -> anyhow::Result<Command> {
+        let release_mode = !self.metadata.debug && !matches!(self.build_kind, BuildKind::Bench);
 
         let built_binary_path = dirs::binary_cache_path()?
             .join(if release_mode { "release" } else { "debug" })
-            .join(&action.bin_name);
+            .join(&self.bin_name);
 
         let manifest_path = self.manifest_path();
 
@@ -307,7 +299,7 @@ impl InputAction {
             cmd
         };
 
-        if matches!(action.build_kind, BuildKind::Normal) && !action.force_compile {
+        if matches!(self.build_kind, BuildKind::Normal) && !self.force_compile {
             let script_path = self.script_path();
 
             match fs::File::open(&built_binary_path) {
@@ -347,9 +339,9 @@ impl InputAction {
             Command::new("cargo")
         };
 
-        cmd.arg(action.build_kind.exec_command());
+        cmd.arg(self.build_kind.exec_command());
 
-        if matches!(action.build_kind, BuildKind::Normal) && run_quietly {
+        if matches!(self.build_kind, BuildKind::Normal) && !self.cargo_output {
             cmd.arg("-q");
         }
 
@@ -366,7 +358,7 @@ impl InputAction {
             cmd.arg("--release");
         }
 
-        if matches!(action.build_kind, BuildKind::Normal) {
+        if matches!(self.build_kind, BuildKind::Normal) {
             if cmd.status()?.success() {
                 cmd = execute_command();
             } else {
@@ -585,13 +577,10 @@ impl Input {
 pub const ID_DIGEST_LEN_MAX: usize = 24;
 
 /// Overwrite a file if and only if the contents have changed.
-fn overwrite_file<P>(path: P, content: &str) -> anyhow::Result<()>
-where
-    P: AsRef<Path>,
-{
-    log::trace!("overwrite_file({:?}, _)", path.as_ref());
+fn overwrite_file(path: &std::path::Path, content: &str) -> anyhow::Result<()> {
+    log::trace!("overwrite_file({:?}, _)", path);
     let mut existing_content = String::new();
-    match fs::File::open(&path) {
+    match fs::File::open(path) {
         Ok(mut file) => {
             file.read_to_string(&mut existing_content)?;
             if existing_content == content {
@@ -609,7 +598,6 @@ where
 
     log::trace!(".. files differ");
     let dir = path
-        .as_ref()
         .parent()
         .ok_or_else(|| anyhow::format_err!("The given path should be a file"))?;
     let mut temp_file = tempfile::NamedTempFile::new_in(dir)?;
