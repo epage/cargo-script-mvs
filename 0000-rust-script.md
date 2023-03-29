@@ -1,17 +1,53 @@
-- Feature Name: (fill me in with a unique ident, `my_awesome_feature`)
-- Start Date: (fill me in with today's date, YYYY-MM-DD)
+- Feature Name: cargo-shell
+- Start Date: 2023-03-31
 - RFC PR: [rust-lang/rfcs#0000](https://github.com/rust-lang/rfcs/pull/0000)
 - Rust Issue: [rust-lang/rust#0000](https://github.com/rust-lang/rust/issues/0000)
 
 # Summary
 [summary]: #summary
 
-One paragraph explanation of the feature.
+`cargo-shell` is a new program included with rust that can be used for
+single-file cargo packages which are `.rs` files with an embedded manifest.
+This can be placed in a `#!` line for directly running these files.  The
+manifest would be a module-level doc comment with a code fence with `cargo` as
+the type.
 
 # Motivation
 [motivation]: #motivation
 
-Why are we doing this? What use cases does it support? What is the expected outcome?
+**Prototyping:**
+
+Currently to prototype or try experiment with APIs or the language, you need to either
+- Use the playground
+  - Can't access local resources
+  - Limited in the crates supported
+  - *Note:* there are alternatives to the playground that might have fewer
+    restrictions but are either less well known or have additional
+    complexities.
+- Find a place to do `cargo new`, edit `Cargo.toml` and `main.rs` as necessary, and `cargo run` it, then delete it
+  - This is a lot of extra steps, increasing the friction to trying things out
+  - This will fail if you create in a place that `cargo` will think it should be a workspace member
+
+By having a single-file project,
+- It is easier to setup and tear down these experiments, making it more likely to happen
+- All crates will be available
+- Local resources are available
+
+**Collaboration:**
+
+When sharing reproduction cases, it is much easier when everything exists in a
+single code snippet to copy/paste.  Alternatively, people will either leave off
+the manifest or underspecify the details of it.
+
+This similarly makes it easier to share code samples with coworkers or in books
+/ blogs.
+
+**One-Off Utilities:**
+
+It is fairly trivial to create a bunch of single-file bash or python scripts
+into a directory and add it to the path than it is to `cargo new` a bunch of
+cargo packages and then create bash wrappers within the path to then call those
+script
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
