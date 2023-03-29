@@ -15,13 +15,12 @@ mod file_assoc {}
 
 use std::ffi::OsString;
 use std::fs;
-use std::io::{BufWriter, Read, Write};
+use std::io::{Read, Write};
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
 
 use crate::build_kind::BuildKind;
@@ -177,27 +176,7 @@ fn gc_cache(max_age: std::time::Duration) -> anyhow::Result<()> {
             log::trace!("checking: {:?}", path);
 
             let remove_dir = || {
-                // Ok, so *why* aren't we using `modified in the package metadata?
-                // The point of *that* is to track what we know about the input.
-                // The problem here is that `--expr` and `--loop` don't *have*
-                // modification times; they just *are*.
-                // Now, `PackageMetadata` *could* be modified to store, say, the
-                // moment in time the input was compiled, but then we couldn't use
-                // that field for metadata matching when decided whether or not a
-                // *file* input should be recompiled.
-                // So, instead, we're just going to go by the timestamp on the
-                // metadata file *itself*.
-                let meta_mtime = {
-                    let meta_path = get_pkg_metadata_path(&path);
-                    let meta_file = match fs::File::open(meta_path) {
-                        Ok(file) => file,
-                        Err(..) => {
-                            log::trace!("couldn't open metadata for {:?}", path);
-                            return true;
-                        }
-                    };
-                    meta_file.metadata().and_then(|m| m.modified()).ok()
-                };
+                let meta_mtime = child.metadata().and_then(|m| m.modified()).ok();
                 log::trace!("meta_mtime: {:>20?} ms", meta_mtime);
 
                 if let Some(meta_mtime) = meta_mtime {
@@ -225,8 +204,6 @@ fn gc_cache(max_age: std::time::Duration) -> anyhow::Result<()> {
 /// Why take `PackageMetadata`?  To ensure that any information we need to depend on for compilation *first* passes through `decide_action_for` *and* is less likely to not be serialised with the rest of the metadata.
 fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> anyhow::Result<()> {
     let pkg_path = &action.pkg_path;
-    let meta = &action.metadata;
-    let old_meta = action.old_metadata.as_ref();
 
     let mani_str = &action.manifest;
     let script_str = &action.script;
@@ -242,45 +219,13 @@ fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> anyhow::Result<()
         Ok(())
     });
 
-    let mut meta = meta.clone();
-
     log::trace!("generating Cargo package...");
     let mani_path = action.manifest_path();
-    let mani_hash = old_meta.map(|m| &*m.manifest_hash);
-    match overwrite_file(mani_path, mani_str, mani_hash)? {
-        FileOverwrite::Same => (),
-        FileOverwrite::Changed { new_hash } => {
-            meta.manifest_hash = new_hash;
-        }
-    }
+    let script_path = pkg_path.join(format!("{}.rs", input.safe_name()));
 
-    {
-        let script_path = pkg_path.join(format!("{}.rs", input.safe_name()));
-        // There are times (particularly involving shared target dirs) where we can't rely
-        // on Cargo to correctly detect invalidated builds. As such, if we've been told to
-        // *force* a recompile, we'll deliberately force the script to be overwritten,
-        // which will invalidate the timestamp, which will lead to a recompile.
-        let script_hash = if action.force_compile {
-            log::debug!("told to force compile, ignoring script hash");
-            None
-        } else {
-            old_meta.map(|m| &*m.script_hash)
-        };
-        match overwrite_file(script_path, script_str, script_hash)? {
-            FileOverwrite::Same => (),
-            FileOverwrite::Changed { new_hash } => {
-                meta.script_hash = new_hash;
-            }
-        }
-    }
-
-    let meta = meta;
-
-    // Write out metadata *now*.  Remember that we check the timestamp on the metadata, *not* on the executable.
-    if action.emit_metadata {
-        log::trace!("emitting metadata...");
-        write_pkg_metadata(pkg_path, &meta)?;
-    }
+    let anything_changed =
+        overwrite_file(mani_path, mani_str)? | overwrite_file(script_path, script_str)?;
+    log::trace!("anything changed? {}", anything_changed);
 
     log::trace!("disarming pkg dir cleanup...");
     cleanup_dir.disarm();
@@ -299,9 +244,6 @@ struct InputAction {
     /// `compile` must be `true` for this to have any effect.
     force_compile: bool,
 
-    /// Emit a metadata file?
-    emit_metadata: bool,
-
     /// Directory where the package should live.
     pkg_path: PathBuf,
 
@@ -317,9 +259,6 @@ struct InputAction {
 
     /// The package metadata structure for the current invocation.
     metadata: PackageMetadata,
-
-    /// The package metadata structure for the *previous* invocation, if it exists.
-    old_metadata: Option<PackageMetadata>,
 
     /// The package manifest contents.
     manifest: String,
@@ -357,22 +296,13 @@ impl InputAction {
 ///
 /// 1. It records everything necessary for compilation and execution of a package.
 /// 2. It records everything that must be exactly the same in order for a cached executable to still be valid, in addition to the content hash.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 struct PackageMetadata {
-    /// Path to the script file.
-    path: Option<String>,
-
     /// Was the script compiled in debug mode?
     debug: bool,
 
     /// Cargo features
     features: Option<String>,
-
-    /// Hash of the generated `Cargo.toml` file.
-    manifest_hash: String,
-
-    /// Hash of the generated source file.
-    script_hash: String,
 }
 
 /// For the given input, this constructs the package metadata and checks the cache to see what should be done.
@@ -399,22 +329,12 @@ fn decide_action_for(input: &Input, args: &Args) -> anyhow::Result<InputAction> 
     };
 
     let input_meta = {
-        let path = match input {
-            Input::File(_, path, _) => Some(path.to_string_lossy().into_owned()),
-            _ => None,
-        };
         let features = if args.features.is_empty() {
             None
         } else {
             Some(args.features.join(" "))
         };
-        PackageMetadata {
-            path,
-            debug,
-            features,
-            manifest_hash: hash_str(&mani_str),
-            script_hash: hash_str(&script_str),
-        }
+        PackageMetadata { debug, features }
     };
     log::trace!("input_meta: {:?}", input_meta);
 
@@ -429,12 +349,10 @@ fn decide_action_for(input: &Input, args: &Args) -> anyhow::Result<InputAction> 
     let mut action = InputAction {
         cargo_output: args.cargo_output,
         force_compile: force,
-        emit_metadata: true,
         pkg_path,
         using_cache,
         toolchain_version,
         metadata: input_meta,
-        old_metadata: None,
         manifest: mani_str,
         script: script_str,
         build_kind: args.build_kind,
@@ -450,59 +368,7 @@ fn decide_action_for(input: &Input, args: &Args) -> anyhow::Result<InputAction> 
         }
     }
 
-    action.old_metadata = match get_pkg_metadata(&action.pkg_path) {
-        Ok(meta) => Some(meta),
-        Err(err) => {
-            log::debug!(
-                "recompiling since failed to load metadata: {}",
-                err.to_string()
-            );
-            None
-        }
-    };
-
     Ok(action)
-}
-
-/// Load the package metadata, given the path to the package's cache folder.
-fn get_pkg_metadata<P>(pkg_path: P) -> anyhow::Result<PackageMetadata>
-where
-    P: AsRef<Path>,
-{
-    let meta_path = get_pkg_metadata_path(pkg_path);
-    log::trace!("meta_path: {:?}", meta_path);
-    let mut meta_file = fs::File::open(&meta_path)?;
-
-    let meta_str = {
-        let mut s = String::new();
-        meta_file.read_to_string(&mut s).unwrap();
-        s
-    };
-    let meta: PackageMetadata = serde_json::from_str(&meta_str)?;
-
-    Ok(meta)
-}
-
-/// Work out the path to a package's metadata file.
-fn get_pkg_metadata_path<P>(pkg_path: P) -> PathBuf
-where
-    P: AsRef<Path>,
-{
-    pkg_path.as_ref().join("metadata.json")
-}
-
-/// Save the package metadata, given the path to the package's cache folder.
-fn write_pkg_metadata<P>(pkg_path: P, meta: &PackageMetadata) -> anyhow::Result<()>
-where
-    P: AsRef<Path>,
-{
-    let meta_path = get_pkg_metadata_path(&pkg_path);
-    log::trace!("meta_path: {:?}", meta_path);
-    let mut temp_file = tempfile::NamedTempFile::new_in(&pkg_path)?;
-    serde_json::to_writer(BufWriter::new(&temp_file), meta)?;
-    temp_file.flush()?;
-    temp_file.persist(&meta_path)?;
-    Ok(())
 }
 
 /// Attempts to locate the script specified by the given path.
@@ -638,31 +504,30 @@ impl Input {
 /// The largest meaningful value is `40`.
 pub const ID_DIGEST_LEN_MAX: usize = 24;
 
-/// Shorthand for hashing a string.
-fn hash_str(s: &str) -> String {
-    let mut hasher = Sha1::new();
-    hasher.update(s);
-    format!("{:x}", hasher.finalize())
-}
-
-enum FileOverwrite {
-    Same,
-    Changed { new_hash: String },
-}
-
 /// Overwrite a file if and only if the contents have changed.
-fn overwrite_file<P>(path: P, content: &str, hash: Option<&str>) -> anyhow::Result<FileOverwrite>
+fn overwrite_file<P>(path: P, content: &str) -> anyhow::Result<bool>
 where
     P: AsRef<Path>,
 {
-    log::trace!("overwrite_file({:?}, _, {:?})", path.as_ref(), hash);
-    let new_hash = hash_str(content);
-    if Some(&*new_hash) == hash {
-        log::trace!(".. hashes match");
-        return Ok(FileOverwrite::Same);
+    log::trace!("overwrite_file({:?}, _)", path.as_ref());
+    let mut existing_content = String::new();
+    match fs::File::open(&path) {
+        Ok(mut file) => {
+            file.read_to_string(&mut existing_content)?;
+            if existing_content == content {
+                log::trace!("Equal content");
+                return Ok(false);
+            }
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            // Continue
+        }
+        Err(e) => {
+            return Err(e.into());
+        }
     }
 
-    log::trace!(".. hashes differ; new_hash: {:?}", new_hash);
+    log::trace!(".. files differ");
     let dir = path
         .as_ref()
         .parent()
@@ -671,7 +536,7 @@ where
     temp_file.write_all(content.as_bytes())?;
     temp_file.flush()?;
     temp_file.persist(path)?;
-    Ok(FileOverwrite::Changed { new_hash })
+    Ok(true)
 }
 
 /// Constructs a Cargo command that runs on the script package.
