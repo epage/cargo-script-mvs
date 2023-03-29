@@ -267,6 +267,9 @@ struct InputAction {
 
     // Name of the built binary
     bin_name: String,
+
+    /// The file stem for the script source
+    safe_name: String,
 }
 
 impl InputAction {
@@ -275,7 +278,7 @@ impl InputAction {
     }
 
     fn script_path(&self) -> PathBuf {
-        self.pkg_path.join("main.rs")
+        self.pkg_path.join(format!("{}.rs", self.safe_name))
     }
 
     fn cargo(&self, script_args: &[OsString]) -> anyhow::Result<Command> {
@@ -428,6 +431,7 @@ fn decide_action_for(input: &Input, args: &Args) -> anyhow::Result<InputAction> 
         script: script_str,
         build_kind: args.build_kind,
         bin_name,
+        safe_name: input.safe_name().to_owned(),
     };
 
     // If we're not doing a regular build, stop.
