@@ -54,9 +54,9 @@ By having a single-file project,
 **One-Off Utilities:**
 
 It is fairly trivial to create a bunch of single-file bash or python scripts
-into a directory and add it to the path than it is to `cargo new` a bunch of
-cargo packages and then create bash wrappers within the path to then call those
-script
+into a directory and add it to the path.  Compare this to rust where
+- `cargo new` each of the "scripts" into individual directories
+- Create wrappers for each so you can access it in your path, passing `--manifest-path` to `cargo run`
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
@@ -71,7 +71,8 @@ This will work like any other cargo command:
 # Drawbacks
 [drawbacks]: #drawbacks
 
-Why should we *not* do this?
+This increases the maintenance and support burden for the cargo team, a team
+that is already limited in its availablity.
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
@@ -178,9 +179,17 @@ Generic
 - Can we have both script stability and make it easy to be on the latest edition?
 - Could somehow "lock" to what is currently in the shared script cache to avoid
   each script getting the latest version of a crate, causing churn in `target/`?
+- Is there a way we can allow whitebox exploratory programming like Python
+  (mostly) does where you can run any script within a project?
+  - The limitation in Python is on whether your environment and package are
+    setup just right for all imports to work
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
+
+## A REPL
+
+See the [REPL exploration](https://github.com/epage/cargo-script-mvs/discussions/102)
 
 ## Workspace Support
 
@@ -189,7 +198,7 @@ Allow scripts to be members of a workspace.
 The assumption is that this will be opt-in, rather than implicit, so you can
 easily drop one of these scripts anywhere without it failing because the
 workspace root and the script don't agree on workspace membership.  To do this,
-we'd xpand `package.workspace` to also be a `bool` to control whether a
+we'd expand `package.workspace` to also be a `bool` to control whether a
 workspace lookup is disallowed or whether to auto-detect the workspace
 - For `Cargo.toml`, `package.workspace = true` is the default
 - For cargo-script, `package.workspace = false` is the default
