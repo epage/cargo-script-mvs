@@ -15,6 +15,24 @@ the type.
 # Motivation
 [motivation]: #motivation
 
+**Collaboration:**
+
+When sharing reproduction cases, it is much easier when everything exists in a
+single code snippet to copy/paste.  Alternatively, people will either leave off
+the manifest or underspecify the details of it.
+
+This similarly makes it easier to share code samples with coworkers or in books
+/ blogs.
+
+**Interoperability:**
+
+One angle to look at including something is if there is a single obvious
+solution.  While there isn't in the case for `cargo-shell`, there is enough of
+a subset of one that by standardizing that subset, we allow greater
+interoperability between solutions (e.g.
+[playground could gain support](https://users.rust-lang.org/t/call-for-contributors-to-the-rust-playground-for-upcoming-features/87110/14?u=epage)
+).  This would make it easier to collaborate..
+
 **Prototyping:**
 
 Currently to prototype or try experiment with APIs or the language, you need to either
@@ -32,15 +50,6 @@ By having a single-file project,
 - It is easier to setup and tear down these experiments, making it more likely to happen
 - All crates will be available
 - Local resources are available
-
-**Collaboration:**
-
-When sharing reproduction cases, it is much easier when everything exists in a
-single code snippet to copy/paste.  Alternatively, people will either leave off
-the manifest or underspecify the details of it.
-
-This similarly makes it easier to share code samples with coworkers or in books
-/ blogs.
 
 **One-Off Utilities:**
 
@@ -106,7 +115,10 @@ Rust, same space
 
 Rust, related space
 - [Playground](https://play.rust-lang.org/)
-- [`runner`](https://github.com/stevedonovan/runner/) (#14)
+  - Includes top 100 crates
+- [Rust Explorer](https://users.rust-lang.org/t/rust-playground-with-the-top-10k-crates/75746)
+  - Uses a comment syntax for specifying dependencies
+- [`runner`](https://github.com/stevedonovan/runner/)
   - Global `Cargo.toml` with dependencies added via `runner --add <dep>` and various commands  / args to interact with the shared crate
   - Global, editable prelude / template
   - `-e <expr>` support
