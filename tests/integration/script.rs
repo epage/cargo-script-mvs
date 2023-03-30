@@ -1,4 +1,44 @@
 #[test]
+fn force_rebuild() {
+    let fixture = crate::util::Fixture::new();
+
+    fixture
+        .cmd()
+        .arg("tests/data/cecho.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "msg = undefined
+",
+        );
+
+    fixture
+        .cmd()
+        .arg("tests/data/cecho.rs")
+        .env("_RUST_SCRIPT_TEST_MESSAGE", "hello")
+        .assert()
+        .success()
+        .stdout_eq(
+            "msg = undefined
+",
+        );
+
+    fixture
+        .cmd()
+        .args(["--force"])
+        .arg("tests/data/cecho.rs")
+        .env("_RUST_SCRIPT_TEST_MESSAGE", "hello")
+        .assert()
+        .success()
+        .stdout_eq(
+            "msg = hello
+",
+        );
+
+    fixture.close();
+}
+
+#[test]
 fn test_script_line_numbering_preserved() {
     let fixture = crate::util::Fixture::new();
     fixture
@@ -435,6 +475,24 @@ fn test_nightly_toolchain() {
         .stdout_eq(
             "--output--
 `#![feature]` *may* be used!
+",
+        );
+
+    fixture.close();
+}
+
+#[test]
+fn test_ignore_rustup_toolchain() {
+    let fixture = crate::util::Fixture::new();
+    let toolchain_toml = fixture.path().join("rust-toolchain.toml");
+    std::fs::write(&toolchain_toml, "[toolchain]\nchannel = \"non-existing\"").unwrap();
+    fixture
+        .cmd()
+        .arg("tests/data/hello_world.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "Hello world!
 ",
         );
 
