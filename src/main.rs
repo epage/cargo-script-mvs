@@ -311,6 +311,17 @@ impl InputAction {
                         built_binary_file.metadata().unwrap().modified().unwrap();
                     let script_mtime = script_path.metadata()?.modified()?;
                     let manifest_mtime = manifest_path.metadata()?.modified()?;
+                    log::trace!(
+                        "binary {}: {:?}",
+                        built_binary_path.display(),
+                        built_binary_mtime
+                    );
+                    log::trace!("main {}: {:?}", script_path.display(), script_mtime);
+                    log::trace!(
+                        "manifest: {}: {:?}",
+                        manifest_path.display(),
+                        manifest_mtime
+                    );
                     if built_binary_mtime.cmp(&script_mtime).is_ge()
                         && built_binary_mtime.cmp(&manifest_mtime).is_ge()
                     {
