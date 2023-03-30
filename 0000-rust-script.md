@@ -81,6 +81,21 @@ Misc
 - Use `package.rust-version` to control the toolchain
   - Why not: this will be sitting below rustup, not above it
 
+## Naming
+
+By using `rust` in the name, it makes it sound like its parallel or below
+cargo, rather than integrates with cargo support.
+
+When naming it `cargo <something>`, `#!/usr/bin/env cargo <something>` will
+fail because `env` treats the rest of the line as the bin name, spaces
+included.  You need to use `env -S` but that wasn't supported at least on macOS
+last I tested.
+
+When naming `cargo-<something>` (e.g. `cargo-script`), we are following the
+convention of a cargo plugin and users have full right to expect it to work but
+it will fail because cargo will run it as
+`cargo-<something> <something>`.
+
 # Prior art
 [prior-art]: #prior-art
 
