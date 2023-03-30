@@ -202,6 +202,12 @@ Generic
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
+## CLI Expession Evaluation
+
+Support a `-e` / `--eval` / `--expr` flag that changes the interpretation of the path
+parameter to being an expression to evaluate that prints the debug
+representation of the result if it isn't `()`.
+
 ## A REPL
 
 See the [REPL exploration](https://github.com/epage/cargo-script-mvs/discussions/102)
