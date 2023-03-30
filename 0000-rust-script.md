@@ -72,7 +72,7 @@ This will work like any other cargo command:
 [drawbacks]: #drawbacks
 
 This increases the maintenance and support burden for the cargo team, a team
-that is already limited in its availablity.
+that is already limited in its availability.
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
@@ -202,7 +202,7 @@ Generic
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-## CLI Expession Evaluation
+## CLI Expression Evaluation
 
 Support a `-e` / `--eval` / `--expr` flag that changes the interpretation of the path
 parameter to being an expression to evaluate that prints the debug
