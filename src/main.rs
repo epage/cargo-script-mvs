@@ -286,7 +286,11 @@ impl InputAction {
 
         let built_binary_path = dirs::binary_cache_path()?
             .join(if release_mode { "release" } else { "debug" })
-            .join(&self.bin_name);
+            .join(&format!(
+                "{}{}",
+                self.bin_name,
+                std::env::consts::EXE_SUFFIX
+            ));
 
         let manifest_path = self.manifest_path();
 
