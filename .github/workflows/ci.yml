@@ -19,7 +19,7 @@ on:
 jobs:
   ci:
     name: CI
-    needs: [test, test-install-file-association, msrv, docs, rustfmt, clippy]
+    needs: [test, msrv, docs, rustfmt, clippy]
     runs-on: ubuntu-latest
     steps:
       - name: Done
@@ -69,29 +69,6 @@ jobs:
       run: cargo test --workspace --all-features
     - name: No-default features
       run: cargo test --workspace --no-default-features
-  test-install-file-association:
-    runs-on: windows-latest
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-    - name: Install Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        profile: minimal
-        override: true
-    - uses: Swatinem/rust-cache@v2
-    - name: Build debug
-      run: cargo build
-    - name: Install file association
-      run: ./target/debug/rust-script.exe --install-file-association
-    - name: Run example script
-      run: cmd.exe /C .\examples\hello.ers
-    - name: Uninstall file association
-      run: ./target/debug/rust-script.exe --uninstall-file-association
-    - name: Run example script
-      run: cmd.exe /C .\examples\hello.ers
-      continue-on-error: true
   msrv:
     name: "Check MSRV: 1.65.0"
     runs-on: ubuntu-latest

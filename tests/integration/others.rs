@@ -7,7 +7,7 @@ fn test_version() {
         .assert()
         .success()
         .stdout_matches(
-            "rust-script [..]
+            "cargo-shell [..]
 ",
         );
 
@@ -15,22 +15,32 @@ fn test_version() {
 }
 
 #[test]
-fn test_empty_clear_cache() {
+fn test_clean_noop() {
     let fixture = crate::util::Fixture::new();
-    fixture.cmd().args(["--clear-cache"]).assert().success();
+    fixture
+        .cmd()
+        .args(["--clean", "-Zpolyfill"])
+        .arg("tests/data/hello_world.rs")
+        .assert()
+        .success();
     fixture.close();
 }
 
 #[test]
-fn test_clear_cache() {
+fn test_clean() {
     let fixture = crate::util::Fixture::new();
     fixture
         .cmd()
-        .arg("tests/data/script-full-block.rs")
+        .arg("tests/data/hello_world.rs")
         .assert()
         .success();
 
-    fixture.cmd().args(["--clear-cache"]).assert().success();
+    fixture
+        .cmd()
+        .args(["--clean", "-Zpolyfill"])
+        .arg("tests/data/hello_world.rs")
+        .assert()
+        .success();
 
     fixture.close();
 }

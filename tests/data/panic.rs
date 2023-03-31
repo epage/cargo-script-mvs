@@ -1,5 +1,5 @@
 #!/usr/bin/env cargo-shell
 
 fn main() {
-    println!("Hello world!");
+    panic!("a pink elephant!");
 }
