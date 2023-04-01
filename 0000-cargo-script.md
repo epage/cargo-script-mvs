@@ -12,6 +12,34 @@ This can be placed in a `#!` line for directly running these files.  The
 manifest would be a module-level doc comment with a code fence with `cargo` as
 the type.
 
+Example:
+```rust
+#!/usr/bin/env cargo-eval
+
+//! ```cargo
+//! [dependencies]
+//! clap = { version = "4.2", features = ["derive"] }
+//! ```
+
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[clap(version)]
+struct Args {
+    #[clap(short, long, help = "Path to config")]
+    config: Option<std::path::PathBuf>,
+}
+
+fn main() {
+    let args = Args::parse();
+    println!("{:?}", args);
+}
+```
+```console
+$ ./prog --config file.toml
+Args { config: Some("file.toml") }
+```
+
 # Motivation
 [motivation]: #motivation
 
@@ -22,13 +50,13 @@ single code snippet to copy/paste.  Alternatively, people will either leave off
 the manifest or underspecify the details of it.
 
 This similarly makes it easier to share code samples with coworkers or in books
-/ blogs.
+/ blogs when teaching.
 
 **Interoperability:**
 
 One angle to look at including something is if there is a single obvious
 solution.  While there isn't in the case for `cargo-eval`, there is enough of
-a subset of one that by standardizing that subset, we allow greater
+a subset of one. By standardizing that subset, we allow greater
 interoperability between solutions (e.g.
 [playground could gain support](https://users.rust-lang.org/t/call-for-contributors-to-the-rust-playground-for-upcoming-features/87110/14?u=epage)
 ).  This would make it easier to collaborate..
@@ -64,15 +92,109 @@ into a directory and add it to the path.  Compare this to rust where
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
-This will work like any other cargo command:
-- It will sit below `rustup` which means it will respect the rust toolchain file
-- It will respect the `.cargo/config.toml` from the CWD
+## Single-file packages
+
+In addition to today's multi-file packages (`Cargo.toml` file with other `.rs`
+files), we are adding the concept of single-file packages which may contain an
+embedded manifest.  There is no required distinguishment for a single-file
+`.rs` package from any other `.rs` file.
+
+A single-file package may contain an embedded manfiest.  An embedded manifest
+is stored using `TOML` in a markdown code-fence with `cargo` at the start of the
+infostring inside a target-level doc-comment.
+
+Supported forms of embedded manifest are:
+``````rust
+//! ```cargo
+//! ```
+``````
+``````rust
+/*
+```cargo
+```
+*/
+``````
+``````rust
+/*
+ * ```cargo
+ * ```
+ */
+``````
+
+Inferred / defaulted manifest fields:
+- `package.publish = false` to avoid accidental publishes, particularly if we
+  later add support for including them in a workspace.
+- `package.edition = <current>` to avoid always having to add an embedded
+  manifest at the cost of potentially breaking scripts on rust upgrades
+
+Disallowd manifest fields:
+- `[workspace]`, `[lib]`, `[[bin]]`, `[[example]]`, `[[test]]`, `[[bench]]`
+- `package.workspace`, `package.build`, `package.links`, `package.autobins`, `package.autoexamples`, `package.autotests`, `package.autobenches`
+
+As the primary role for these files is exploratory programming which has a high
+edit-to-run ratio, building should be fast.  Therefore `CARGO_TARGET_DIR` will
+be shared between single-file packages to allow reusing intermediate build
+artifacts.
+
+A single-file package is accepted by cargo commands as a `--manifest-path`
+- This is distinguished by the file extension (`.rs`) and that it is a file.
+- This allows running `cargo test --manifest-path single.rs`
+- `cargo package` / `cargo publish` will normalize this into a multi-file package
+- `cargo add` and `cargo remove` may not support editing embeded manifests initially
+- Path-dependencies may not refer to single-file packages at this time (they don't have a `lib` target anyways)
+
+## `cargo-eval`
+
+`cargo-eval` is intended for putting in the `#!` for single-file packages:
+```rust
+#!/usr/bin/env cargo-eval
+
+fn main() {
+    println!("Hello world");
+}
+```
+This command will have the same behavior as running `cargo eval` but is
+distinct for wider compatibility (see [Naming](#naming)).
+
+To work with `#!`, `cargo-eval` will accept the single-file package and its
+arguments as positional arguments on the command-line.
+
+A user may substitute `-` for the single-file package to read it from the
+stdin.  `cargo-eval` will also implicitly read from `stdin` if it is not
+interactive:
+```console
+$ echo 'fn main() { println!("Hello world"); }' | cargo-eval
+```
+
+As the primary use case is for exploratory programming, the emphasis will be on
+build-time performance, rather than runtime performance
+- Debug builds will be the default
+- A new profile may be added (or existing profiles tweaked) to optimize build times
+
+Similarly, we will invert the default for `RUST_BACKTRACE`, enabling it by
+default, to provide more context to aid in debugging of panics.
+
+To not mix in cargo and user output, `cargo-eval` will run as if with `--quiet` by
+default.  A single `--verbose` gives the default `cargo run` output.  Add
+more to be like adding `--verbose` to `cargo run` in the first place.  In the
+future, cargo may provide progress bars when stdout is interactive, but they
+will be cleared by the time cargo is done.
+
+Most other flags and behavior will be similar to `cargo run`.
 
 # Drawbacks
 [drawbacks]: #drawbacks
 
+The implicit content of the manifest will be unclear for users.  We can patch
+over this as best we can in documentation but the result won't be ideal.
+
 This increases the maintenance and support burden for the cargo team, a team
 that is already limited in its availability.
+
+Like with all cargo packages, the `target/` directory grows unbounded.  Some
+prior art include a cache GC but that is also to clean up the temp files stored
+in other locations (our temp files are inside the `target/` dir and should be
+rarer).
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
@@ -94,6 +216,7 @@ However
 Therefore, this RFC proposes we limit the scope of the new command to `cargo run` for single-file rust packages.
 
 ## Naming
+[naming]: #naming
 
 Considerations:
 - The name should tie it back to `cargo` to convey that relationship
@@ -119,6 +242,24 @@ Candidates
   - Could add a positional argument to `cargo run` but those are generally avoided in cargo commands
 - `cargo-eval`:
   - Currently selected proposal
+  - How do we describe the difference between this and `cargo-run`?
+
+## First vs Third Party
+
+As mentioned, a reason for being first-party is to standardize the convention
+for this which also allows greater interop.
+
+This also improves the overall experience since you can run `cargo test
+--manifest-path script.rs` rather than the third-party tool trying to cover
+every `cargo` workflow in a slightly different way than the regular cargo
+workflow.
+
+This still leaves room for third-party implementations, either differentiating themselves or experimenting with
+- Alternative caching mechanisms for lower overhead
+- Support for implicit `main`, like doc-comment examples
+- Template support for implicit `main` for customizing `use`, `extern`, `#[feature]`, etc
+- Short-hand dependency syntax (e.g. `//# serde_json = "*"`)
+- Prioritizing other workflows, like runtime performance
 
 # Prior art
 [prior-art]: #prior-art
@@ -143,7 +284,7 @@ Rust, same space
   - See above
   - Changed extension to `.ers` / `.rs`
   - Single binary without subcommands in primary case for ease of running
-  - Inferred-main support, including `async main` (different implementation than rustdoc)
+  - Implicit main support, including `async main` (different implementation than rustdoc)
   - `--toolchain-version` flag
 - [`cargo-play`](https://crates.io/crates/cargo-play)
   - Allows multiple-file scripts, first specified is the `main`
@@ -205,7 +346,11 @@ Go
   - Implicit garbage collection for build cache
   - Project metadata is specified in HEREDOCs in comments
 
-Generic
+Ruby
+- [`bundler/inline`](https://bundler.io/guides/bundler_in_a_single_file_ruby_script.html)
+  - Uses a code-block to define dependencies, making them available for use
+
+Cross-language
 - [`scriptisto`](https://github.com/igor-petruk/scriptisto)
   - Supports any compiled language
   - Comment-directives give build commands
@@ -218,19 +363,42 @@ Generic
 - Can we have both script stability and make it easy to be on the latest edition?
 - Could somehow "lock" to what is currently in the shared script cache to avoid
   each script getting the latest version of a crate, causing churn in `target/`?
-- Is there a way we can allow whitebox exploratory programming like Python
-  (mostly) does where you can run any script within a project?
-  - The limitation in Python is on whether your environment and package are
-    setup just right for all imports to work
+- Should rustup associate `.rs` files with `cargo-eval`?
+  - Some descendants of `cargo-script` use an alternative extension for this
+    (`.ers`, `.crs`) but other languages, like Python, do not try to make such
+    distinguishments.
+  - Most people would likely want the editor to be the default association
+- Since single-file packages cannot be inferred and require an explicit
+  `--manifest-path`, is there an alternative shorthand we should provide, like
+  a short-flag for `--manifest-path`?
+  - `p` is taken by `--package`
+  - `-m`, `-M`, and `-P` are available, but are the meanings clear enough?
+- Is there a way we could track what dependency versions have been built in the
+  `CARGO_TARGET_DIR` and give preference to resolve to them, if possible.
+- `.cargo/config.toml` and rustup-toolchain behavior
+  - These are "environment" config files
+  - Should `cargo-eval` run like `cargo run` and use the current environment or
+    like `cargo install` and use a consistent environment from run-to-run of
+    the target?
+  - It would be relatively easy to get this with `.cargo/config.toml` but doing
+    so for rustup would require a new proxy that understands `cargo-shell`s
+    CLI.
+  - This would also reduce unnecesary rebuilds when running a personal script
+    (from `PATH`) in a project that has an unrelated `.cargo/config.toml`
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-## CLI Expression Evaluation
+## Implicit `main` support
 
-Support a `-e` / `--eval` / `--expr` flag that changes the interpretation of the path
-parameter to being an expression to evaluate that prints the debug
-representation of the result if it isn't `()`.
+Like with doc-comment examples, we could support an implicit `main`.
+
+Ideally, this would be supported at the language level
+- Ensure a unified experience across the playground, `rustdoc`, and `cargo-eval`
+- `cargo-eval` can directly run files rather than writing to intermediate files
+  - This gets brittle with top-level statements like `extern` (more historical) or bin-level attributes
+
+Behavior can be controlled through editions
 
 ## A REPL
 
@@ -240,6 +408,10 @@ In terms of the CLI side of this, we could name this `cargo shell` where it
 drops you into an interactive shell within your current package, loading the
 existing dependencies (including dev).  This would then be a natural fit to also have a `--eval
 <expr>` flag.
+
+Ideally, this repl would also allow the equivelant of `python -i <file>`, not
+to run existing code but to make a specific file's API items available for use
+to do interactive whitebox testing of private code within a larger project.
 
 ## Workspace Support
 
@@ -265,3 +437,10 @@ When a workspace is specified
 This could serve as an alternative to
 [`cargo xtask`](https://github.com/matklad/cargo-xtask) with scripts sharing
 the lockfile and `target/` directory.
+
+## Scaling up
+
+We provide a workflow for turning a single-file package into a multi-file package, whether
+on either `cargo-eval` or on `cargo-new` / `cargo-init`.  This would help
+smooth out the transition when their program has outgrown being in a
+single-file.
