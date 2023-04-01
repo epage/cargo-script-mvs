@@ -40,6 +40,8 @@ $ ./prog --config file.toml
 Args { config: Some("file.toml") }
 ```
 
+See [`cargo-script-mvs`](https://crates.io/crates/cargo-script-mvs) for a demo.
+
 # Motivation
 [motivation]: #motivation
 
