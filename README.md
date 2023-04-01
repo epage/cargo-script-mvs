@@ -1,6 +1,15 @@
 [![CI](https://github.com/fornwall/cargo-eval/workflows/CI/badge.svg)](https://github.com/fornwall/cargo-eval/actions?query=workflow%3ACI)
 [![Crates.io](https://img.shields.io/crates/v/cargo-eval.svg)](https://crates.io/crates/cargo-eval)
 
+Note: this is a demo for the corresponding
+[RFC](https://github.com/epage/cargo-script-mvs/blob/main/0000-cargo-script.md).
+Devitions from the RFC include:
+- Not as many compilation flags (e.g. `--profile`)
+- `-Zpolyfill` flags like `--test` to demo how `cargo test` might work
+- Assuming a "shell" script is actually a parameter from `cargo` and dropping it
+- Implementation: Writing an explicit `Cargo.toml` in the target dir since
+  cargo does not understand embedded manifests yet
+
 - [Overview](#overview)
 - [Installation](#installation)
   - [Distro Packages](#distro-packages)
@@ -18,7 +27,7 @@ Run cargo scripts without any setup or explicit compilation step, with seamless
 use of crates specified as dependencies inside the scripts.
 
 ```console
-$ cargo install cargo-eval
+$ cargo install cargo-script-mvs
 [...]
 
 $ cat script.rs
@@ -56,7 +65,7 @@ You can get an overview of the available options using the `--help` flag.
 Install or update `cargo-eval` using Cargo:
 
 ```console
-$ cargo install cargo-eval
+$ cargo install cargo-script-mvs
 ```
 
 ## Scripts
