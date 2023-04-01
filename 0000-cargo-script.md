@@ -142,7 +142,7 @@ metadata that Cargo needs to compile your package. This is written in the
 
 `time = "0.1.12"` is the name of the [crate][def-crate] and a [SemVer] version
 requirement. The [specifying
-dependencies](https://doc.rust-lang.org/cargo/guide/../reference/specifying-dependencies.md) docs have more
+dependencies](https://doc.rust-lang.org/cargo/guide/../reference/specifying-dependencies.html) docs have more
 information about the options you have here.
 
 If we also wanted to add a dependency on the `regex` crate, we would not need
