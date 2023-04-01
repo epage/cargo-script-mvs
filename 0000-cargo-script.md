@@ -307,13 +307,13 @@ Supported forms of embedded manifest are:
 //! ```
 ``````
 ``````rust
-/*
+/*!
 ```cargo
 ```
 */
 ``````
 ``````rust
-/*
+/*!
  * ```cargo
  * ```
  */
