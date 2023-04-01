@@ -579,7 +579,7 @@ Cross-language
     like `cargo install` and use a consistent environment from run-to-run of
     the target?
   - It would be relatively easy to get this with `.cargo/config.toml` but doing
-    so for rustup would require a new proxy that understands `cargo-shell`s
+    so for rustup would require a new proxy that understands `cargo-eval`s
     CLI.
   - This would also reduce unnecesary rebuilds when running a personal script
     (from `PATH`) in a project that has an unrelated `.cargo/config.toml`
