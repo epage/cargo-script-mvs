@@ -187,7 +187,7 @@ Did our date match? true
 
 ## Package Layout
 
-*(Adapted from [the cargo book](https://doc.rust-lang.org/cargo/guide/package-layout.html))*
+*(Adapted from [the cargo book](https://doc.rust-lang.org/cargo/guide/project-layout.html))*
 
 When a single file is not enough, you can separately define a `Cargo.toml` file along with the `src/main.rs` file.  Run
 ```console
