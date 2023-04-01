@@ -10,7 +10,7 @@ readme = "docs/README.md"
 categories = ["command-line-utilities", "development-tools"]
 keywords = ["cargo", "script"]
 edition = "2021"
-rust-version = "1.64.0"  # MSRV
+rust-version = "1.65.0"  # MSRV
 include = [
   "build.rs",
   "src/**/*",
