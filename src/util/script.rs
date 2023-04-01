@@ -67,7 +67,7 @@ impl RawScript {
         let hash = self.hash().to_string();
         assert_eq!(hash.len(), 64);
         let mut workspace_root = target_dir.to_owned();
-        workspace_root.push("shell");
+        workspace_root.push("eval");
         workspace_root.push(&hash[0..2]);
         workspace_root.push(&hash[2..4]);
         workspace_root.push(&hash[4..]);
@@ -488,7 +488,7 @@ fn main () {
         snapbox::assert_eq(
             "no doc-comment found",
             extract_comment(
-                r#"#!/usr/bin/env cargo-shell
+                r#"#!/usr/bin/env cargo-eval
 
 fn main () {
 }
@@ -530,7 +530,7 @@ fn main() {}
 time = "*"
 ```
 "#,
-            ec!(r#"#!/usr/bin/env cargo-shell
+            ec!(r#"#!/usr/bin/env cargo-eval
 
 //! Here is a manifest:
 //!
@@ -582,7 +582,7 @@ time = "*"
 ```
 
 "#,
-            ec!(r#"#!/usr/bin/env cargo-shell
+            ec!(r#"#!/usr/bin/env cargo-eval
 
 /*!
 Here is a manifest:
@@ -636,7 +636,7 @@ time = "*"
 ```
 
 "#,
-            ec!(r#"#!/usr/bin/env cargo-shell
+            ec!(r#"#!/usr/bin/env cargo-eval
 
 /*!
  * Here is a manifest:

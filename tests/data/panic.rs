@@ -1,4 +1,4 @@
-#!/usr/bin/env cargo-shell
+#!/usr/bin/env cargo-eval
 
 fn main() {
     panic!("a pink elephant!");

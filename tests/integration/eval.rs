@@ -142,7 +142,7 @@ fn test_default_backtrace() {
         .assert()
         .failure()
         .stderr_matches(
-            "thread 'main' panicked at 'a pink elephant!', [CWD]/target/shell/[..]/eval.rs:21:12
+            "thread 'main' panicked at 'a pink elephant!', [CWD]/target/eval/[..]/eval.rs:21:12
 stack backtrace:
 ...",
         );
@@ -161,7 +161,7 @@ fn test_override_backtrace() {
         .assert()
         .failure()
         .stderr_matches(
-            "thread 'main' panicked at 'a pink elephant!', [CWD]/target/shell/[..]/eval.rs:21:12
+            "thread 'main' panicked at 'a pink elephant!', [CWD]/target/eval/[..]/eval.rs:21:12
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 ",
         );

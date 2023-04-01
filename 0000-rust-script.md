@@ -1,4 +1,4 @@
-- Feature Name: cargo-shell
+- Feature Name: cargo-eval
 - Start Date: 2023-03-31
 - RFC PR: [rust-lang/rfcs#0000](https://github.com/rust-lang/rfcs/pull/0000)
 - Rust Issue: [rust-lang/rust#0000](https://github.com/rust-lang/rust/issues/0000)
@@ -6,7 +6,7 @@
 # Summary
 [summary]: #summary
 
-`cargo-shell` is a new program included with rust that can be used for
+`cargo-eval` is a new program included with rust that can be used for
 single-file cargo packages which are `.rs` files with an embedded manifest.
 This can be placed in a `#!` line for directly running these files.  The
 manifest would be a module-level doc comment with a code fence with `cargo` as
@@ -27,7 +27,7 @@ This similarly makes it easier to share code samples with coworkers or in books
 **Interoperability:**
 
 One angle to look at including something is if there is a single obvious
-solution.  While there isn't in the case for `cargo-shell`, there is enough of
+solution.  While there isn't in the case for `cargo-eval`, there is enough of
 a subset of one that by standardizing that subset, we allow greater
 interoperability between solutions (e.g.
 [playground could gain support](https://users.rust-lang.org/t/call-for-contributors-to-the-rust-playground-for-upcoming-features/87110/14?u=epage)

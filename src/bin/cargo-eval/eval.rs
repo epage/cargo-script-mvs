@@ -3,8 +3,8 @@ use std::path::PathBuf;
 
 use cargo::util::errors::CliError;
 
-use cargo_shell::config::UnstableFlags;
-use cargo_shell::CliResult;
+use cargo_eval::config::UnstableFlags;
+use cargo_eval::CliResult;
 
 pub fn cli() -> clap::Command {
     clap::command!()
@@ -154,7 +154,7 @@ pub fn exec(matches: &clap::ArgMatches, config: &mut cargo::util::Config) -> Cli
         .cloned()
         .or_else(|| std::env::var_os("CARGO_TARGET_DIR").map(PathBuf::from))
         .map(Ok)
-        .unwrap_or_else(cargo_shell::config::default_target_dir)?;
+        .unwrap_or_else(cargo_eval::config::default_target_dir)?;
     let cli_config = [];
     config.configure(
         verbose as u32,
@@ -174,7 +174,7 @@ pub fn exec(matches: &clap::ArgMatches, config: &mut cargo::util::Config) -> Cli
                 std::env::set_var("RUST_BACKTRACE", "1");
             }
             let manifest_path = dunce::canonicalize(PathBuf::from(script))?;
-            cargo_shell::ops::run(config, &manifest_path, &script_args, release)
+            cargo_eval::ops::run(config, &manifest_path, &script_args, release)
                 .map_err(|err| to_run_error(config, err))?;
         }
         Action::Eval => {
@@ -187,7 +187,7 @@ pub fn exec(matches: &clap::ArgMatches, config: &mut cargo::util::Config) -> Cli
                     script.to_string_lossy()
                 )
             })?;
-            cargo_shell::ops::eval(config, script, release)
+            cargo_eval::ops::eval(config, script, release)
                 .map_err(|err| to_run_error(config, err))?;
         }
         Action::Loop => {
@@ -200,20 +200,20 @@ pub fn exec(matches: &clap::ArgMatches, config: &mut cargo::util::Config) -> Cli
                     script.to_string_lossy()
                 )
             })?;
-            cargo_shell::ops::loop_(config, script, release)
+            cargo_eval::ops::loop_(config, script, release)
                 .map_err(|err| to_run_error(config, err))?;
         }
         Action::Clean => {
             let manifest_path = dunce::canonicalize(PathBuf::from(script))?;
-            cargo_shell::ops::clean(config, &manifest_path)?;
+            cargo_eval::ops::clean(config, &manifest_path)?;
         }
         Action::Test => {
             let manifest_path = dunce::canonicalize(PathBuf::from(script))?;
-            cargo_shell::ops::test(config, &manifest_path)?;
+            cargo_eval::ops::test(config, &manifest_path)?;
         }
         Action::Bench => {
             let manifest_path = dunce::canonicalize(PathBuf::from(script))?;
-            cargo_shell::ops::bench(config, &manifest_path)?;
+            cargo_eval::ops::bench(config, &manifest_path)?;
         }
     }
 

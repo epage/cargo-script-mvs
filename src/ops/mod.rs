@@ -120,7 +120,7 @@ fn temp_script(config: &cargo::Config, main: &str, id: &str) -> CargoResult<std:
         .unwrap_or_else(|| crate::config::default_target_dir().map(cargo::util::Filesystem::new))?;
     let hash = blake3::hash(main.as_bytes()).to_string();
     let mut main_path = target_dir.as_path_unlocked().to_owned();
-    main_path.push("shell");
+    main_path.push("eval");
     main_path.push(&hash[0..2]);
     main_path.push(&hash[2..4]);
     main_path.push(&hash[4..]);

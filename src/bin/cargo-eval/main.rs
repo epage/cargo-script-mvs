@@ -11,7 +11,7 @@
     unused_qualifications
 )]
 
-mod shell;
+mod eval;
 
 use std::ffi::OsStr;
 
@@ -21,18 +21,18 @@ fn main() {
     // passes in to signify which plugin this is.
     let mut args = std::env::args_os().peekable();
     args.next(); // strip binary name
-    if args.peek().map(|s| s.as_os_str()) == Some(OsStr::new("shell")) {
+    if args.peek().map(|s| s.as_os_str()) == Some(OsStr::new("eval")) {
         args.next(); // Strip command name, if present
     }
 
-    let cli = shell::cli().no_binary_name(true);
+    let cli = eval::cli().no_binary_name(true);
     let matches = cli.get_matches_from(args);
 
     let mut config = cargo::util::config::Config::default().unwrap_or_else(|e| {
-        let mut shell = cargo::core::shell::Shell::new();
-        cargo::exit_with_error(e.into(), &mut shell)
+        let mut eval = cargo::core::shell::Shell::new();
+        cargo::exit_with_error(e.into(), &mut eval)
     });
-    if let Err(e) = shell::exec(&matches, &mut config) {
+    if let Err(e) = eval::exec(&matches, &mut config) {
         cargo::exit_with_error(e, &mut config.shell())
     }
 }

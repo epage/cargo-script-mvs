@@ -25,7 +25,7 @@ impl Fixture {
             .unwrap();
         subst.insert("[EXE]", std::env::consts::EXE_SUFFIX).unwrap();
         let assert = snapbox::Assert::new().substitutions(subst);
-        snapbox::cmd::Command::new(snapbox::cmd::cargo_bin("cargo-shell"))
+        snapbox::cmd::Command::new(snapbox::cmd::cargo_bin("cargo-eval"))
             .env("CARGO_TARGET_DIR", &self.target_path)
             .with_assert(assert)
     }
