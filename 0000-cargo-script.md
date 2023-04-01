@@ -91,6 +91,201 @@ into a directory and add it to the path.  Compare this to rust where
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
+### Creating a New Package
+
+*(Adapted from [the cargo book](https://doc.rust-lang.org/cargo/guide/creating-a-new-project.html))*
+
+To start a new [package][def-package] with Cargo, create a file named `hello_world.rs`:
+```rust
+#!/usr/bin/env cargo-eval
+
+fn main() {
+    println!("Hello, world!");
+}
+```
+
+Let's run it
+```console
+$ chmod +x hello_world.rs
+$ ./hello_world.rs
+Hello, world!
+```
+
+### Dependencies
+
+*(Adapted from [the cargo book](https://doc.rust-lang.org/cargo/guide/dependencies.html))*
+
+[crates.io] is the Rust community's central [*package registry*][def-package-registry]
+that serves as a location to discover and download
+[packages][def-package]. `cargo` is configured to use it by default to find
+requested packages.
+
+#### Adding a dependency
+
+To depend on a library hosted on [crates.io], you modify `hello_world.rs`:
+```rust
+#!/usr/bin/env cargo-eval
+
+//! ```cargo
+//! [dependencies]
+//! time = "0.1.12"
+//! ```
+
+fn main() {
+    println!("Hello, world!");
+}
+```
+
+The `cargo` section is called a [***manifest***][def-manifest], and it contains all of the
+metadata that Cargo needs to compile your package. This is written in the
+[TOML] format (pronounced /tɑməl/).
+
+`time = "0.1.12"` is the name of the [crate][def-crate] and a [SemVer] version
+requirement. The [specifying
+dependencies](../reference/specifying-dependencies.md) docs have more
+information about the options you have here.
+
+If we also wanted to add a dependency on the `regex` crate, we would not need
+to add `[dependencies]` for each crate listed. Here's what your whole
+`hello_world.rs` file would look like with dependencies on the `time` and `regex`
+crates:
+
+```rust
+#!/usr/bin/env cargo-eval
+
+//! ```cargo
+//! [dependencies]
+//! time = "0.1.12"
+//! regex = "0.1.41"
+//! ```
+
+fn main() {
+    let re = Regex::new(r"^\d{4}-\d{2}-\d{2}$").unwrap();
+    println!("Did our date match? {}", re.is_match("2014-01-01"));
+}
+```
+
+You can then re-run this and Cargo will fetch the new dependencies and all of their dependencies.  You can see this by passing in `--verbose`:
+```console
+$ cargo-eval --verbose ./hello_world.rs
+      Updating crates.io index
+   Downloading memchr v0.1.5
+   Downloading libc v0.1.10
+   Downloading regex-syntax v0.2.1
+   Downloading memchr v0.1.5
+   Downloading aho-corasick v0.3.0
+   Downloading regex v0.1.41
+     Compiling memchr v0.1.5
+     Compiling libc v0.1.10
+     Compiling regex-syntax v0.2.1
+     Compiling memchr v0.1.5
+     Compiling aho-corasick v0.3.0
+     Compiling regex v0.1.41
+     Compiling hello_world v0.1.0 (file:///path/to/package/hello_world)
+Did our date match? true
+```
+
+## Package Layout
+
+*(Adapted from [the cargo book](https://doc.rust-lang.org/cargo/guide/package-layout.html))*
+
+When a single file is not enough, you can separately define a `Cargo.toml` file along with the `src/main.rs` file.  Run
+```console
+$ cargo new hello_world --bin
+```
+
+We’re passing `--bin` because we’re making a binary program: if we
+were making a library, we’d pass `--lib`. This also initializes a new `git`
+repository by default. If you don't want it to do that, pass `--vcs none`.
+
+Let’s check out what Cargo has generated for us:
+```console
+$ cd hello_world
+$ tree .
+.
+├── Cargo.toml
+└── src
+    └── main.rs
+
+1 directory, 2 files
+```
+Unlike the `hello_world.rs`, a little more context is needed in `Cargo.toml`:
+```toml
+[package]
+name = "hello_world"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+```
+
+Cargo uses conventions for file placement to make it easy to dive into a new
+Cargo [package][def-package]:
+
+```text
+.
+├── Cargo.lock
+├── Cargo.toml
+├── src/
+│   ├── lib.rs
+│   ├── main.rs
+│   └── bin/
+│       ├── named-executable.rs
+│       ├── another-executable.rs
+│       └── multi-file-executable/
+│           ├── main.rs
+│           └── some_module.rs
+├── benches/
+│   ├── large-input.rs
+│   └── multi-file-bench/
+│       ├── main.rs
+│       └── bench_module.rs
+├── examples/
+│   ├── simple.rs
+│   └── multi-file-example/
+│       ├── main.rs
+│       └── ex_module.rs
+└── tests/
+    ├── some-integration-tests.rs
+    └── multi-file-test/
+        ├── main.rs
+        └── test_module.rs
+```
+
+* `Cargo.toml` and `Cargo.lock` are stored in the root of your package (*package
+  root*).
+* Source code goes in the `src` directory.
+* The default library file is `src/lib.rs`.
+* The default executable file is `src/main.rs`.
+    * Other executables can be placed in `src/bin/`.
+* Benchmarks go in the `benches` directory.
+* Examples go in the `examples` directory.
+* Integration tests go in the `tests` directory.
+
+If a binary, example, bench, or integration test consists of multiple source
+files, place a `main.rs` file along with the extra [*modules*][def-module]
+within a subdirectory of the `src/bin`, `examples`, `benches`, or `tests`
+directory. The name of the executable will be the directory name.
+
+You can learn more about Rust's module system in [the book][book-modules].
+
+See [Configuring a target] for more details on manually configuring targets.
+See [Target auto-discovery] for more information on controlling how Cargo
+automatically infers target names.
+
+[book-modules]: ../../book/ch07-00-managing-growing-projects-with-packages-crates-and-modules.html
+[Configuring a target]: ../reference/cargo-targets.md#configuring-a-target
+[def-package]:           ../appendix/glossary.md#package          '"package" (glossary entry)'
+[Target auto-discovery]: ../reference/cargo-targets.md#target-auto-discovery
+[TOML]: https://toml.io/
+[crates.io]: https://crates.io/
+[SemVer]: https://semver.org
+[def-crate]:             ../appendix/glossary.md#crate             '"crate" (glossary entry)'
+[def-package]:           ../appendix/glossary.md#package           '"package" (glossary entry)'
+[def-package-registry]:  ../appendix/glossary.md#package-registry  '"package-registry" (glossary entry)'
+[def-manifest]:          ../appendix/glossary.md#manifest          '"manifest" (glossary entry)'
+
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
