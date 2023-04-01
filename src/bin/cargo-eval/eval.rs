@@ -40,7 +40,7 @@ pub fn cli() -> clap::Command {
             clap::Arg::new("clean")
                 .long("clean")
                 .help("Remove the script target director (unstable)")
-                .help_heading("Pollyfill")
+                .help_heading("Polyfill")
                 .action(clap::ArgAction::SetTrue)
                 .requires("script")
                 .group("action"),
@@ -48,14 +48,14 @@ pub fn cli() -> clap::Command {
                 .long("test")
                 .action(clap::ArgAction::SetTrue)
                 .help("Compile and run tests (unstable)")
-                .help_heading("Pollyfill")
+                .help_heading("Polyfill")
                 .requires("script")
                 .group("action"),
             clap::Arg::new("bench")
                 .long("bench")
                 .action(clap::ArgAction::SetTrue)
                 .help("Compile and run benchmarks (unstable)")
-                .help_heading("Pollyfill")
+                .help_heading("Polyfill")
                 .requires("script")
                 .group("action"),
             clap::Arg::new("unstable_flags")
@@ -77,21 +77,21 @@ pub fn exec(matches: &clap::ArgMatches, config: &mut cargo::util::Config) -> Cli
     let action = if matches.get_flag("clean") {
         if !unstable_flags.contains(&UnstableFlags::Polyfill) {
             return Err(
-                anyhow::format_err!("`--clean` is unstable and requires `-Zpollyfill`").into(),
+                anyhow::format_err!("`--clean` is unstable and requires `-Zpolyfill`").into(),
             );
         }
         Action::Clean
     } else if matches.get_flag("test") {
         if !unstable_flags.contains(&UnstableFlags::Polyfill) {
             return Err(
-                anyhow::format_err!("`--test` is unstable and requires `-Zpollyfill`").into(),
+                anyhow::format_err!("`--test` is unstable and requires `-Zpolyfill`").into(),
             );
         }
         Action::Test
     } else if matches.get_flag("bench") {
         if !unstable_flags.contains(&UnstableFlags::Polyfill) {
             return Err(
-                anyhow::format_err!("`--bench` is unstable and requires `-Zpollyfill`").into(),
+                anyhow::format_err!("`--bench` is unstable and requires `-Zpolyfill`").into(),
             );
         }
         Action::Bench
