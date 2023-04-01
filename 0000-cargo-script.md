@@ -275,16 +275,16 @@ See [Target auto-discovery] for more information on controlling how Cargo
 automatically infers target names.
 
 [book-modules]: https://doc.rust-lang.org/cargo/guide/../../book/ch07-00-managing-growing-projects-with-packages-crates-and-modules.html
-[Configuring a target]: https://doc.rust-lang.org/cargo/guide/../reference/cargo-targets.md#configuring-a-target
-[def-package]:           https://doc.rust-lang.org/cargo/guide/../appendix/glossary.md#package          '"package" (glossary entry)'
-[Target auto-discovery]: https://doc.rust-lang.org/cargo/guide/../reference/cargo-targets.md#target-auto-discovery
+[Configuring a target]: https://doc.rust-lang.org/cargo/guide/../reference/cargo-targets.html#configuring-a-target
+[def-package]:           https://doc.rust-lang.org/cargo/guide/../appendix/glossary.html#package          '"package" (glossary entry)'
+[Target auto-discovery]: https://doc.rust-lang.org/cargo/guide/../reference/cargo-targets.html#target-auto-discovery
 [TOML]: https://toml.io/
 [crates.io]: https://crates.io/
 [SemVer]: https://semver.org
-[def-crate]:             https://doc.rust-lang.org/cargo/guide/../appendix/glossary.md#crate             '"crate" (glossary entry)'
-[def-package]:           https://doc.rust-lang.org/cargo/guide/../appendix/glossary.md#package           '"package" (glossary entry)'
-[def-package-registry]:  https://doc.rust-lang.org/cargo/guide/../appendix/glossary.md#package-registry  '"package-registry" (glossary entry)'
-[def-manifest]:          https://doc.rust-lang.org/cargo/guide/../appendix/glossary.md#manifest          '"manifest" (glossary entry)'
+[def-crate]:             https://doc.rust-lang.org/cargo/guide/../appendix/glossary.html#crate             '"crate" (glossary entry)'
+[def-package]:           https://doc.rust-lang.org/cargo/guide/../appendix/glossary.html#package           '"package" (glossary entry)'
+[def-package-registry]:  https://doc.rust-lang.org/cargo/guide/../appendix/glossary.html#package-registry  '"package-registry" (glossary entry)'
+[def-manifest]:          https://doc.rust-lang.org/cargo/guide/../appendix/glossary.html#manifest          '"manifest" (glossary entry)'
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
