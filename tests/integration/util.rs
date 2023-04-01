@@ -35,15 +35,3 @@ impl Fixture {
         self.fixture.close().unwrap();
     }
 }
-
-macro_rules! with_output_marker {
-    (prelude $p:expr; $e:expr) => {
-        format!(concat!($p, "{}", $e), crate::util::OUTPUT_MARKER_CODE)
-    };
-
-    ($e:expr) => {
-        format!(concat!("{}", $e), crate::util::OUTPUT_MARKER_CODE)
-    };
-}
-
-pub const OUTPUT_MARKER_CODE: &str = "println!(\"--output--\");";

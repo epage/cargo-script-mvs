@@ -107,28 +107,6 @@ On Unix systems, you can use `#!/usr/bin/env cargo-eval` as a shebang line in
 a Rust script.  This will allow you to execute a script files (which don't need
 to have the `.rs` file extension) directly.
 
-## Evaluating Expressions
-
-Using the `-e`/`--eval` option a Rust expression can be evaluated directly:
-
-```console
-$ cargo-eval -Zeval -e '1+2'
-3
-```
-
-## Filters
-
-You can use `cargo-eval` to write a quick filter, by specifying a closure to be called for each line read from stdin, like so:
-
-```console
-$ cat hello.rs | cargo-eval --loop \
-    "let mut n=0; move |l| {n+=1; println!(\"{:>6}: {}\",n,l.trim_end())}"
-     1: fn main() {
-     2:     println!("hello");
-     3: }
-```
-
-
 ## License
 
 Licensed under either of
