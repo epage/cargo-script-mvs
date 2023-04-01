@@ -383,6 +383,10 @@ Most other flags and behavior will be similar to `cargo run`.
 # Drawbacks
 [drawbacks]: #drawbacks
 
+At the moment, the doc-comment parsing is brittle, relying on regexes, to
+extract it and then requires a heavy depedency (a markdown parser) to get the
+code fence.0
+
 The implicit content of the manifest will be unclear for users.  We can patch
 over this as best we can in documentation but the result won't be ideal.
 
