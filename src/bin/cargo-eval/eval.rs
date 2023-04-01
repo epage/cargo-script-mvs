@@ -10,6 +10,7 @@ use cargo_eval::CliResult;
 
 pub fn cli() -> clap::Command {
     clap::command!()
+        .name("cargo-eval")
         .args([
             clap::Arg::new("script")
                 .num_args(1..)
