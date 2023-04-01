@@ -7,5 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+## [0.1.0] - 2023-04-01
+
 <!-- next-url -->
-[Unreleased]: https://github.com/epage/cargo-script-mvs/compare/de3069942551dca29f333f9c2054dcf5a4fde1e3...HEAD
+[Unreleased]: https://github.com/epage/cargo-script-mvs/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/epage/cargo-script-mvs/compare/de3069942551dca29f333f9c2054dcf5a4fde1e3...v0.1.0
