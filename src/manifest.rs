@@ -1,6 +1,5 @@
 //! Extracting the manifest from a script file.
 use std::collections::HashMap;
-use std::ffi::OsString;
 use std::path::Path;
 
 use anyhow::Context as _;
@@ -30,7 +29,7 @@ static RE_CRATE_COMMENT: once_cell::sync::Lazy<Regex> = once_cell::sync::Lazy::n
 /// Splits input into a complete Cargo manifest and unadultered Rust source.
 ///
 /// Unless we have prelude items to inject, in which case it will be *slightly* adulterated.
-pub fn split_input(input: &Input, input_id: &OsString) -> anyhow::Result<(String, String)> {
+pub fn split_input(input: &Input, bin_name: &str) -> anyhow::Result<(String, String)> {
     fn contains_main_method(line: &str) -> bool {
         let line = line.trim_start();
         line.starts_with("fn main(")
@@ -55,8 +54,8 @@ pub fn split_input(input: &Input, input_id: &OsString) -> anyhow::Result<(String
             };
             (manifest, source, templates::get_template("file")?)
         }
-        Input::Expr(content, template) => {
-            template_buf = templates::get_template(template.as_deref().unwrap_or("expr"))?;
+        Input::Expr(content) => {
+            template_buf = templates::get_template("expr")?;
             let (manifest, template_src) = find_embedded_manifest(&template_buf)
                 .unwrap_or((Manifest::Toml(""), &template_buf));
             (manifest, content.to_string(), template_src.into())
@@ -76,7 +75,7 @@ pub fn split_input(input: &Input, input_id: &OsString) -> anyhow::Result<(String
     log::trace!("part_mani: {:?}", part_mani);
 
     // It's-a mergin' time!
-    let def_mani = default_manifest(input, input_id)?;
+    let def_mani = default_manifest(input, bin_name)?;
     let mani = merge_manifest(def_mani, part_mani)?;
 
     // Fix up relative paths.
@@ -94,10 +93,10 @@ pub const SCRIPT_BODY_SUB: &str = "script";
 
 #[test]
 fn test_split_input() {
-    let input_id = OsString::from("input_id");
+    let bin_name = "binary-name";
     macro_rules! si {
         ($i:expr) => {
-            split_input(&$i, &input_id).ok()
+            split_input(&$i, bin_name).ok()
         };
     }
 
@@ -116,13 +115,16 @@ fn test_split_input() {
         si!(f(r#"fn main() {}"#)),
         r!(
             r#"[[bin]]
-name = "n_input_id"
+name = "binary-name"
 path = "n.rs"
 
 [package]
-edition = "2018"
+edition = "2021"
 name = "n"
 version = "0.1.0"
+
+[profile.release]
+strip = true
 "#,
             r#"fn main() {}"#
         )
@@ -136,13 +138,16 @@ fn main() {}
 "#)),
         r!(
             r#"[[bin]]
-name = "n_input_id"
+name = "binary-name"
 path = "n.rs"
 
 [package]
-edition = "2018"
+edition = "2021"
 name = "n"
 version = "0.1.0"
+
+[profile.release]
+strip = true
 "#,
             r#"
 ---
@@ -159,13 +164,16 @@ fn main() {}
 "#)),
         r!(
             r#"[[bin]]
-name = "n_input_id"
+name = "binary-name"
 path = "n.rs"
 
 [package]
-edition = "2018"
+edition = "2021"
 name = "n"
 version = "0.1.0"
+
+[profile.release]
+strip = true
 "#,
             r#"[dependencies]
 time="0.1.25"
@@ -189,16 +197,19 @@ fn main() {}
 "#)),
         r!(
             r#"[[bin]]
-name = "n_input_id"
+name = "binary-name"
 path = "n.rs"
 
 [dependencies]
 time = "0.1.25"
 
 [package]
-edition = "2018"
+edition = "2021"
 name = "n"
 version = "0.1.0"
+
+[profile.release]
+strip = true
 "#,
             r#"
 /*!
@@ -842,13 +853,12 @@ time = "*"
 }
 
 /// Generates a default Cargo manifest for the given input.
-fn default_manifest(input: &Input, input_id: &OsString) -> anyhow::Result<toml::value::Table> {
+fn default_manifest(input: &Input, bin_name: &str) -> anyhow::Result<toml::value::Table> {
     let mani_str = {
         let pkg_name = input.package_name();
-        let bin_name = format!("{}_{}", &*pkg_name, input_id.to_str().unwrap());
         let mut subs = HashMap::with_capacity(3);
         subs.insert(MANI_NAME_SUB, &*pkg_name);
-        subs.insert(MANI_BIN_NAME_SUB, &*bin_name);
+        subs.insert(MANI_BIN_NAME_SUB, bin_name);
         subs.insert(MANI_FILE_SUB, input.safe_name());
         templates::expand(DEFAULT_MANIFEST, &subs)?
     };
@@ -861,11 +871,14 @@ pub const DEFAULT_MANIFEST: &str = r##"
 [package]
 name = "#{name}"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [[bin]]
 name = "#{bin_name}"
 path = "#{file}.rs"
+
+[profile.release]
+strip = true
 "##;
 
 /// Substitution for the identifier-safe package name of the script.
@@ -913,8 +926,8 @@ fn merge_manifest(
     return Ok(into_t);
 
     fn as_table_mut(t: &mut toml::Value) -> Option<&mut toml::value::Table> {
-        match *t {
-            toml::Value::Table(ref mut t) => Some(t),
+        match t {
+            toml::Value::Table(t) => Some(t),
             _ => None,
         }
     }
@@ -935,7 +948,7 @@ fn fix_manifest_paths(mani: toml::value::Table, base: &Path) -> anyhow::Result<t
 
     for path in paths {
         iterate_toml_mut_path(&mut mani, path, &mut |v| {
-            if let toml::Value::String(ref mut s) = *v {
+            if let toml::Value::String(s) = v {
                 if Path::new(s).is_relative() {
                     let p = base.join(&*s);
                     if let Some(p) = p.to_str() {
@@ -970,12 +983,12 @@ where
     let tail = &path[1..];
 
     if cur == "*" {
-        if let toml::Value::Table(ref mut tab) = *base {
+        if let toml::Value::Table(tab) = base {
             for (_, v) in tab {
                 iterate_toml_mut_path(v, tail, on_each)?;
             }
         }
-    } else if let toml::Value::Table(ref mut tab) = *base {
+    } else if let toml::Value::Table(tab) = base {
         if let Some(v) = tab.get_mut(cur) {
             iterate_toml_mut_path(v, tail, on_each)?;
         }

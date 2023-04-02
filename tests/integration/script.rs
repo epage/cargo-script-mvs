@@ -96,34 +96,6 @@ stack backtrace:
     fixture.close();
 }
 #[test]
-fn test_script_features() {
-    let fixture = crate::util::Fixture::new();
-    fixture
-        .cmd()
-        .args(["--features", "dont-panic"])
-        .arg("tests/data/script-features.rs")
-        .assert()
-        .success()
-        .stdout_eq(
-            "--output--
-Keep calm and borrow check.
-",
-        );
-
-    fixture.cmd()
-        .arg("tests/data/script-features.rs")
-        .assert()
-        .failure()
-        .stderr_matches(
-            "...
-thread 'main' panicked at 'Do I really exist from an external, non-subjective point of view?', script-features.rs:15:5
-...",
-        );
-
-    fixture.close();
-}
-
-#[test]
 fn test_script_full_block() {
     let fixture = crate::util::Fixture::new();
     fixture
