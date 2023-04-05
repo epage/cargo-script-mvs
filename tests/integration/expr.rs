@@ -17,6 +17,50 @@ fn test_expr_0() {
 }
 
 #[test]
+fn test_expr_force_rebuild() {
+    let script = with_output_marker!("1+1");
+    let fixture = crate::util::Fixture::new();
+
+    fixture
+        .cmd()
+        .args(["-Zexpr", "-e"])
+        .arg(&script)
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+2
+",
+        );
+
+    fixture
+        .cmd()
+        .args(["-Zexpr", "-e"])
+        .arg(&script)
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+2
+",
+        );
+
+    fixture
+        .cmd()
+        .args(["--force", "-Zexpr", "-e"])
+        .arg(&script)
+        .assert()
+        .success()
+        .stdout_eq(
+            "--output--
+2
+",
+        );
+
+    fixture.close();
+}
+
+#[test]
 fn test_expr_comma() {
     let fixture = crate::util::Fixture::new();
     fixture
@@ -53,9 +97,14 @@ fn test_expr_temporary() {
     fixture
         .cmd()
         .args(["-Zexpr", "-e"])
-        .arg("[1].iter().max()")
+        .arg(with_output_marker!("[1].iter().max()"))
         .assert()
-        .success();
+        .success()
+        .stdout_eq(
+            "--output--
+Some(1)
+",
+        );
 
     fixture.close();
 }

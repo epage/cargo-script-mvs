@@ -69,13 +69,6 @@ jobs:
       run: cargo test --workspace --all-features
     - name: No-default features
       run: cargo test --workspace --no-default-features
-    - name: Run script tests
-      if: runner.os != 'Windows'
-      run: |
-        # Run twice to test problem with expression caching
-        ./tests/scripts/test-runner.sh
-        ./tests/scripts/test-runner.sh
-        (cd tests/scripts/ignores-rust-toolchain && ../../../target/debug/rust-script test.rs)
   test-install-file-association:
     runs-on: windows-latest
     steps:

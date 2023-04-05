@@ -1,7 +1,0 @@
-#!/bin/sh
-set -e -u
-
-rust-script -Zexpr -e 'println!("hello");'
-rust-script -Zexpr -e '1+1'
-rust-script -Zexpr -e '1+2'
-rust-script -Zexpr -e '1+3'

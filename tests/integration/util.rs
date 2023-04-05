@@ -14,10 +14,20 @@ impl Fixture {
         }
     }
 
+    pub fn path(&self) -> &std::path::Path {
+        self.fixture.path().unwrap()
+    }
+
     pub fn cmd(&self) -> snapbox::cmd::Command {
+        let mut subst = snapbox::Substitutions::new();
+        subst
+            .insert("[CWD]", self.path().display().to_string())
+            .unwrap();
+        let assert = snapbox::Assert::new().substitutions(subst);
         snapbox::cmd::Command::new(snapbox::cmd::cargo_bin("rust-script"))
             .env_remove("CARGO_TARGET_DIR")
             .env("RUST_SCRIPT_CACHE_PATH", &self.cache_path)
+            .with_assert(assert)
     }
 
     #[track_caller]

@@ -1,4 +1,61 @@
 #[test]
+fn force_rebuild() {
+    let fixture = crate::util::Fixture::new();
+
+    fixture
+        .cmd()
+        .arg("--cargo-output")
+        .arg("tests/data/cecho.rs")
+        .env("CARGO_HOME", fixture.path().join("cargo_home")) // Avoid package cache lock messages
+        .assert()
+        .success()
+        .stderr_matches(
+            "   Compiling cecho v0.1.0 ([CWD]/cache/projects/[..])
+    Finished dev [unoptimized + debuginfo] target(s) in [..]s
+",
+        )
+        .stdout_eq(
+            "msg = undefined
+",
+        );
+
+    fixture
+        .cmd()
+        .arg("--cargo-output")
+        .arg("tests/data/cecho.rs")
+        .env("_RUST_SCRIPT_TEST_MESSAGE", "hello")
+        .env("CARGO_HOME", fixture.path().join("cargo_home")) // Avoid package cache lock messages
+        .assert()
+        .success()
+        .stderr_eq("")
+        .stdout_eq(
+            "msg = undefined
+",
+        );
+
+    fixture
+        .cmd()
+        .arg("--cargo-output")
+        .args(["--force"])
+        .arg("tests/data/cecho.rs")
+        .env("_RUST_SCRIPT_TEST_MESSAGE", "hello")
+        .env("CARGO_HOME", fixture.path().join("cargo_home")) // Avoid package cache lock messages
+        .assert()
+        .success()
+        .stderr_matches(
+            "   Compiling cecho v0.1.0 ([CWD]/cache/projects/[..])
+    Finished dev [unoptimized + debuginfo] target(s) in [..]s
+",
+        )
+        .stdout_eq(
+            "msg = hello
+",
+        );
+
+    fixture.close();
+}
+
+#[test]
 fn test_script_line_numbering_preserved() {
     let fixture = crate::util::Fixture::new();
     fixture
@@ -435,6 +492,24 @@ fn test_nightly_toolchain() {
         .stdout_eq(
             "--output--
 `#![feature]` *may* be used!
+",
+        );
+
+    fixture.close();
+}
+
+#[test]
+fn test_ignore_rustup_toolchain() {
+    let fixture = crate::util::Fixture::new();
+    let toolchain_toml = fixture.path().join("rust-toolchain.toml");
+    std::fs::write(&toolchain_toml, "[toolchain]\nchannel = \"non-existing\"").unwrap();
+    fixture
+        .cmd()
+        .arg("tests/data/hello_world.rs")
+        .assert()
+        .success()
+        .stdout_eq(
+            "Hello world!
 ",
         );
 
