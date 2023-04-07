@@ -1,9 +1,11 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 
+use anyhow::Context as _;
 use cargo::util::errors::CliError;
 
 use cargo_eval::config::UnstableFlags;
+use cargo_eval::CargoResult;
 use cargo_eval::CliResult;
 
 pub fn cli() -> clap::Command {
@@ -11,9 +13,8 @@ pub fn cli() -> clap::Command {
         .args([
             clap::Arg::new("script")
                 .num_args(1..)
-                .value_names(["script", "arg"])
+                .value_names(["PATH_RS", "ARG"])
                 .trailing_var_arg(true)
-                .required(true)
                 .value_parser(clap::value_parser!(OsString))
                 .help("Script file or expression to execute"),
             clap::Arg::new("release")
@@ -99,11 +100,19 @@ pub fn exec(matches: &clap::ArgMatches, config: &mut cargo::util::Config) -> Cli
 
     let mut script_and_args = matches
         .get_many::<OsString>("script")
-        .expect("clap forces `script` to be present")
+        .unwrap_or_default()
         .cloned();
-    let script = script_and_args
-        .next()
-        .expect("clap forces `script` to be present");
+    let script = script_and_args.next();
+    let script = if let Some(script) = script {
+        script
+    } else {
+        use is_terminal::IsTerminal;
+        if std::io::stdin().is_terminal() {
+            return Err(anyhow::format_err!("<PATH_RS> is required").into());
+        } else {
+            "-".into()
+        }
+    };
     let script_args: Vec<OsString> = script_and_args.collect();
 
     let release = matches.get_flag("release");
@@ -149,7 +158,14 @@ pub fn exec(matches: &clap::ArgMatches, config: &mut cargo::util::Config) -> Cli
             if std::env::var_os("RUST_BACKTRACE").is_none() {
                 std::env::set_var("RUST_BACKTRACE", "1");
             }
-            let manifest_path = dunce::canonicalize(PathBuf::from(script))?;
+            let manifest_path = if script == "-" {
+                use std::io::Read as _;
+                let mut main = String::new();
+                std::io::stdin().read_to_string(&mut main)?;
+                temp_script(config, &main, "stdin")?
+            } else {
+                dunce::canonicalize(PathBuf::from(script))?
+            };
             cargo_eval::ops::run(config, &manifest_path, &script_args, release)
                 .map_err(|err| to_run_error(config, err))?;
         }
@@ -168,6 +184,23 @@ pub fn exec(matches: &clap::ArgMatches, config: &mut cargo::util::Config) -> Cli
     }
 
     Ok(())
+}
+
+fn temp_script(config: &cargo::Config, main: &str, id: &str) -> CargoResult<PathBuf> {
+    let target_dir = config.target_dir().transpose().unwrap_or_else(|| {
+        cargo_eval::config::default_target_dir().map(cargo::util::Filesystem::new)
+    })?;
+    let hash = blake3::hash(main.as_bytes()).to_string();
+    let mut main_path = target_dir.as_path_unlocked().to_owned();
+    main_path.push("eval");
+    main_path.push(&hash[0..2]);
+    main_path.push(&hash[2..4]);
+    main_path.push(&hash[4..]);
+    std::fs::create_dir_all(&main_path)
+        .with_context(|| format!("failed to create temporary main at {}", main_path.display()))?;
+    main_path.push(format!("{id}.rs"));
+    cargo_eval::util::write_if_changed(&main_path, main)?;
+    Ok(main_path)
 }
 
 fn to_run_error(config: &cargo::util::Config, err: anyhow::Error) -> CliError {

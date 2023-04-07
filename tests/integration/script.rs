@@ -1,4 +1,77 @@
 #[test]
+fn basic() {
+    let fixture = crate::util::Fixture::new();
+
+    fixture
+        .cmd()
+        .arg("tests/data/hello_world.rs")
+        .env("CARGO_HOME", fixture.path().join("cargo_home")) // Avoid package cache lock messages
+        .assert()
+        .success()
+        .stderr_matches("")
+        .stdout_eq(
+            "Hello world!
+",
+        );
+}
+
+#[test]
+fn eval_explicit_stdin() {
+    let fixture = crate::util::Fixture::new();
+    let stdin = std::fs::read_to_string("tests/data/hello_world.rs").unwrap();
+
+    fixture
+        .cmd()
+        .arg("-")
+        .stdin(&stdin)
+        .env("CARGO_HOME", fixture.path().join("cargo_home")) // Avoid package cache lock messages
+        .assert()
+        .success()
+        .stderr_matches("")
+        .stdout_eq(
+            "Hello world!
+",
+        );
+}
+
+#[test]
+fn eval_implicit_stdin() {
+    let fixture = crate::util::Fixture::new();
+    let stdin = std::fs::read_to_string("tests/data/hello_world.rs").unwrap();
+
+    fixture
+        .cmd()
+        .stdin(&stdin)
+        .env("CARGO_HOME", fixture.path().join("cargo_home")) // Avoid package cache lock messages
+        .assert()
+        .success()
+        .stderr_matches("")
+        .stdout_eq(
+            "Hello world!
+",
+        );
+}
+
+#[test]
+fn regular_stdin() {
+    let fixture = crate::util::Fixture::new();
+    let stdin = "Hello world!";
+
+    fixture
+        .cmd()
+        .arg("tests/data/echo.rs")
+        .stdin(stdin)
+        .env("CARGO_HOME", fixture.path().join("cargo_home")) // Avoid package cache lock messages
+        .assert()
+        .success()
+        .stderr_matches("")
+        .stdout_eq(
+            "msg = Hello world!
+",
+        );
+}
+
+#[test]
 fn rebuild() {
     let fixture = crate::util::Fixture::new();
 
