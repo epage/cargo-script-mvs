@@ -1,16 +1,16 @@
 pub struct Fixture {
     fixture: snapbox::path::PathFixture,
-    cache_path: std::path::PathBuf,
+    target_path: std::path::PathBuf,
 }
 
 impl Fixture {
     #[track_caller]
     pub fn new() -> Self {
         let fixture = snapbox::path::PathFixture::mutable_temp().unwrap();
-        let cache_path = fixture.path().unwrap().join("cache");
+        let target_path = fixture.path().unwrap().join("target");
         Self {
             fixture,
-            cache_path,
+            target_path,
         }
     }
 
@@ -23,10 +23,10 @@ impl Fixture {
         subst
             .insert("[CWD]", self.path().display().to_string())
             .unwrap();
+        subst.insert("[EXE]", std::env::consts::EXE_SUFFIX).unwrap();
         let assert = snapbox::Assert::new().substitutions(subst);
-        snapbox::cmd::Command::new(snapbox::cmd::cargo_bin("rust-script"))
-            .env_remove("CARGO_TARGET_DIR")
-            .env("RUST_SCRIPT_CACHE_PATH", &self.cache_path)
+        snapbox::cmd::Command::new(snapbox::cmd::cargo_bin("cargo-shell"))
+            .env("CARGO_TARGET_DIR", &self.target_path)
             .with_assert(assert)
     }
 

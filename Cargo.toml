@@ -1,16 +1,14 @@
 [package]
-name = "rust-script"
-version = "0.23.0"
+name = "cargo-shell"
+version = "0.1.0"
 description = "Command-line tool to run Rust \"scripts\" which can make use of crates."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/epage/cargo-script-mvs"
-homepage = "https://rust-script.org"
-documentation = "https://github.com/epage/cargo-script-mvs/blob/main/docs/README.md"
-readme = "docs/README.md"
+documentation = "https://github.com/epage/cargo-script-mvs"
 categories = ["command-line-utilities", "development-tools"]
 keywords = ["cargo", "script"]
 edition = "2021"
-rust-version = "1.64.0"  # MSRV
+rust-version = "1.65.0"  # MSRV
 include = [
   "build.rs",
   "src/**/*",
@@ -30,24 +28,24 @@ pre-release-replacements = [
   {file="CHANGELOG.md", search="<!-- next-url -->", replace="<!-- next-url -->\n[Unreleased]: https://github.com/epage/cargo-script-mvs/compare/{{tag_name}}...HEAD", exactly=1},
 ]
 
+[features]
+vendored-libgit2 = ["cargo/vendored-libgit2"]
+vendored-openssl = ["cargo/vendored-openssl"]
+
 [dependencies]
-clap = { version = "4.1.8", features = ["derive"] }
+anyhow = "1.0.69"
+blake3 = "1.3.3"
+cargo = "0.69.1"
+cargo-util = "0.2.3"
+clap = { version = "4.1.8", features = ["derive", "cargo"] }
 dirs-next = "2"
+dunce = "1.0.3"
 env_logger = "0.10"
-once_cell = "1"
+home = "0.5.4"
 log = "0.4"
 pulldown-cmark = "0.9"
-regex = "1"
-sha-1 = "0.10"
-tempfile = "3"
+regex = "1.7.3"
 toml = "0.7"
-anyhow = "1.0.69"
-
-[target.'cfg(windows)'.dependencies]
-winreg = "0.11"
-
-[target.'cfg(unix)'.dependencies]
-atty = "0.2"
 
 [dev-dependencies]
 snapbox = { version = "0.4.7", features = ["cmd", "path"] }
