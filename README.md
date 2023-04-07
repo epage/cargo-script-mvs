@@ -1,5 +1,5 @@
-[![CI](https://github.com/fornwall/cargo-shell/workflows/CI/badge.svg)](https://github.com/fornwall/cargo-shell/actions?query=workflow%3ACI)
-[![Crates.io](https://img.shields.io/crates/v/cargo-shell.svg)](https://crates.io/crates/cargo-shell)
+[![CI](https://github.com/fornwall/cargo-eval/workflows/CI/badge.svg)](https://github.com/fornwall/cargo-eval/actions?query=workflow%3ACI)
+[![Crates.io](https://img.shields.io/crates/v/cargo-eval.svg)](https://crates.io/crates/cargo-eval)
 
 - [Overview](#overview)
 - [Installation](#installation)
@@ -18,11 +18,11 @@ Run cargo scripts without any setup or explicit compilation step, with seamless
 use of crates specified as dependencies inside the scripts.
 
 ```console
-$ cargo install cargo-shell
+$ cargo install cargo-eval
 [...]
 
 $ cat script.rs
-#!/usr/bin/env cargo-shell
+#!/usr/bin/env cargo-eval
 //! Dependencies can be specified in the script file itself as follows:
 //!
 //! ```cargo
@@ -41,7 +41,7 @@ $ ./script.rs
 A random number: 9240261453149857564
 ```
 
-With `cargo-shell` Rust files and expressions can be executed just like a shell or Python script. Features include:
+With `cargo-eval` Rust files and expressions can be executed just like a shell or Python script. Features include:
 
 - Caching compiled artifacts for speed.
 - Reading Cargo manifests embedded in Rust scripts.
@@ -53,19 +53,19 @@ You can get an overview of the available options using the `--help` flag.
 
 ## Installation
 
-Install or update `cargo-shell` using Cargo:
+Install or update `cargo-eval` using Cargo:
 
 ```console
-$ cargo install cargo-shell
+$ cargo install cargo-eval
 ```
 
 ## Scripts
 
-The primary use for `cargo-shell` is for running Rust source files as scripts. For example:
+The primary use for `cargo-eval` is for running Rust source files as scripts. For example:
 
 ```console
 $ echo 'fn main() {println!("Hello, World!");}' > hello.rs
-$ cargo-shell hello.rs
+$ cargo-eval hello.rs
 Hello, World!
 ```
 
@@ -81,11 +81,11 @@ $ cargo run --quiet
 
 To show the compilation output, pass `--verbose`.
 
-`cargo-shell` will look for embedded dependency and manifest information in the
+`cargo-eval` will look for embedded dependency and manifest information in the
 script as shown by the below `now.rs` variants:
 
 ```rust
-#!/usr/bin/env cargo-shell
+#!/usr/bin/env cargo-eval
 
 //! This is a regular crate doc comment, but it also contains a partial
 //! Cargo manifest.  Note the use of a *fenced* code block, and the
@@ -103,31 +103,9 @@ fn main() {
 
 ## Executable Scripts
 
-On Unix systems, you can use `#!/usr/bin/env cargo-shell` as a shebang line in
+On Unix systems, you can use `#!/usr/bin/env cargo-eval` as a shebang line in
 a Rust script.  This will allow you to execute a script files (which don't need
 to have the `.rs` file extension) directly.
-
-## Evaluating Expressions
-
-Using the `-e`/`--eval` option a Rust expression can be evaluated directly:
-
-```console
-$ cargo-shell -Zeval -e '1+2'
-3
-```
-
-## Filters
-
-You can use `cargo-shell` to write a quick filter, by specifying a closure to be called for each line read from stdin, like so:
-
-```console
-$ cat hello.rs | cargo-shell --loop \
-    "let mut n=0; move |l| {n+=1; println!(\"{:>6}: {}\",n,l.trim_end())}"
-     1: fn main() {
-     2:     println!("hello");
-     3: }
-```
-
 
 ## License
 

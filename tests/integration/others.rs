@@ -7,7 +7,7 @@ fn test_version() {
         .assert()
         .success()
         .stdout_matches(
-            "cargo-shell [..]
+            "cargo-eval [..]
 ",
         );
 

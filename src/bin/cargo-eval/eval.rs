@@ -3,8 +3,8 @@ use std::path::PathBuf;
 
 use cargo::util::errors::CliError;
 
-use cargo_shell::config::UnstableFlags;
-use cargo_shell::CliResult;
+use cargo_eval::config::UnstableFlags;
+use cargo_eval::CliResult;
 
 pub fn cli() -> clap::Command {
     clap::command!()
@@ -16,20 +16,6 @@ pub fn cli() -> clap::Command {
                 .required(true)
                 .value_parser(clap::value_parser!(OsString))
                 .help("Script file or expression to execute"),
-            clap::Arg::new("eval")
-                .short('e')
-                .long("eval")
-                .action(clap::ArgAction::SetTrue)
-                .help("Run `<script>` as a literal expression and display the result (unstable)")
-                .requires("script"),
-            clap::Arg::new("loop")
-                .short('l')
-                .long("loop")
-                .action(clap::ArgAction::SetTrue)
-                .help(
-                    "Run `<script>` as a literal closure once for each line from stdin (unstable)",
-                )
-                .requires("script"),
             clap::Arg::new("release")
                 .short('r')
                 .long("release")
@@ -107,16 +93,6 @@ pub fn exec(matches: &clap::ArgMatches, config: &mut cargo::util::Config) -> Cli
             );
         }
         Action::Bench
-    } else if matches.get_flag("eval") {
-        if !unstable_flags.contains(&UnstableFlags::Eval) {
-            return Err(anyhow::format_err!("`--eval` is unstable and requires `-Zeval`").into());
-        }
-        Action::Eval
-    } else if matches.get_flag("loop") {
-        if !unstable_flags.contains(&UnstableFlags::Loop) {
-            return Err(anyhow::format_err!("`--loop` is unstable and requires `-Zloop`").into());
-        }
-        Action::Loop
     } else {
         Action::Run
     };
@@ -133,7 +109,7 @@ pub fn exec(matches: &clap::ArgMatches, config: &mut cargo::util::Config) -> Cli
     let release = matches.get_flag("release");
 
     let verbose = matches.get_count("verbose");
-    let (verbose, quiet) = if matches!(&action, Action::Run | Action::Eval | Action::Loop) {
+    let (verbose, quiet) = if matches!(&action, Action::Run) {
         verbose
             .checked_sub(1)
             .map(|v| (v, false))
@@ -154,7 +130,7 @@ pub fn exec(matches: &clap::ArgMatches, config: &mut cargo::util::Config) -> Cli
         .cloned()
         .or_else(|| std::env::var_os("CARGO_TARGET_DIR").map(PathBuf::from))
         .map(Ok)
-        .unwrap_or_else(cargo_shell::config::default_target_dir)?;
+        .unwrap_or_else(cargo_eval::config::default_target_dir)?;
     let cli_config = [];
     config.configure(
         verbose as u32,
@@ -174,46 +150,20 @@ pub fn exec(matches: &clap::ArgMatches, config: &mut cargo::util::Config) -> Cli
                 std::env::set_var("RUST_BACKTRACE", "1");
             }
             let manifest_path = dunce::canonicalize(PathBuf::from(script))?;
-            cargo_shell::ops::run(config, &manifest_path, &script_args, release)
-                .map_err(|err| to_run_error(config, err))?;
-        }
-        Action::Eval => {
-            if std::env::var_os("RUST_BACKTRACE").is_none() {
-                std::env::set_var("RUST_BACKTRACE", "1");
-            }
-            let script = script.to_str().ok_or_else(|| {
-                anyhow::format_err!(
-                    "`--eval {}` contains invalid UTF-8",
-                    script.to_string_lossy()
-                )
-            })?;
-            cargo_shell::ops::eval(config, script, release)
-                .map_err(|err| to_run_error(config, err))?;
-        }
-        Action::Loop => {
-            if std::env::var_os("RUST_BACKTRACE").is_none() {
-                std::env::set_var("RUST_BACKTRACE", "1");
-            }
-            let script = script.to_str().ok_or_else(|| {
-                anyhow::format_err!(
-                    "`--loop {}` contains invalid UTF-8",
-                    script.to_string_lossy()
-                )
-            })?;
-            cargo_shell::ops::loop_(config, script, release)
+            cargo_eval::ops::run(config, &manifest_path, &script_args, release)
                 .map_err(|err| to_run_error(config, err))?;
         }
         Action::Clean => {
             let manifest_path = dunce::canonicalize(PathBuf::from(script))?;
-            cargo_shell::ops::clean(config, &manifest_path)?;
+            cargo_eval::ops::clean(config, &manifest_path)?;
         }
         Action::Test => {
             let manifest_path = dunce::canonicalize(PathBuf::from(script))?;
-            cargo_shell::ops::test(config, &manifest_path)?;
+            cargo_eval::ops::test(config, &manifest_path)?;
         }
         Action::Bench => {
             let manifest_path = dunce::canonicalize(PathBuf::from(script))?;
-            cargo_shell::ops::bench(config, &manifest_path)?;
+            cargo_eval::ops::bench(config, &manifest_path)?;
         }
     }
 
@@ -246,8 +196,6 @@ fn to_run_error(config: &cargo::util::Config, err: anyhow::Error) -> CliError {
 
 enum Action {
     Run,
-    Eval,
-    Loop,
     Clean,
     Test,
     Bench,

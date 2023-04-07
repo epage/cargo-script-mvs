@@ -1,5 +1,5 @@
 [package]
-name = "cargo-shell"
+name = "cargo-eval"
 version = "0.1.0"
 description = "Command-line tool to run Rust \"scripts\" which can make use of crates."
 license = "MIT OR Apache-2.0"

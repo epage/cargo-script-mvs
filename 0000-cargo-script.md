@@ -1,4 +1,4 @@
-- Feature Name: cargo-shell
+- Feature Name: cargo-script
 - Start Date: 2023-03-31
 - RFC PR: [rust-lang/rfcs#0000](https://github.com/rust-lang/rfcs/pull/0000)
 - Rust Issue: [rust-lang/rust#0000](https://github.com/rust-lang/rust/issues/0000)
@@ -6,7 +6,7 @@
 # Summary
 [summary]: #summary
 
-`cargo-shell` is a new program included with rust that can be used for
+`cargo-eval` is a new program included with rust that can be used for
 single-file cargo packages which are `.rs` files with an embedded manifest.
 This can be placed in a `#!` line for directly running these files.  The
 manifest would be a module-level doc comment with a code fence with `cargo` as
@@ -27,7 +27,7 @@ This similarly makes it easier to share code samples with coworkers or in books
 **Interoperability:**
 
 One angle to look at including something is if there is a single obvious
-solution.  While there isn't in the case for `cargo-shell`, there is enough of
+solution.  While there isn't in the case for `cargo-eval`, there is enough of
 a subset of one that by standardizing that subset, we allow greater
 interoperability between solutions (e.g.
 [playground could gain support](https://users.rust-lang.org/t/call-for-contributors-to-the-rust-playground-for-upcoming-features/87110/14?u=epage)
@@ -77,24 +77,48 @@ that is already limited in its availability.
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
-Misc
-- Use `package.rust-version` to control the toolchain
-  - Why not: this will be sitting below rustup, not above it
+## Scope
+
+The `cargo-script` family of tools has a single command
+- Run `.rs` files with embedded manifests
+- Evaluate command-line arguments (`--expr`, `--loop`)
+
+This behavior (minus embedded manifests) mirrors what you might expect from a
+scripting environment, minus a REPL.  We could design this with the future possibility of a REPL.
+
+However
+- The needs of `.rs` files and REPL / CLI args are different, e.g. where they get their dependency definitions
+- A REPL is a lot larger of a problem, needing to pull in a lot of interactive behavior that is unrelated to `.rs` files
+- A REPL for Rust is a lot more nebulous of a future possibility, making it pre-mature to design for it in mind
+
+Therefore, this RFC proposes we limit the scope of the new command to `cargo run` for single-file rust packages.
 
 ## Naming
 
-By using `rust` in the name, it makes it sound like its parallel or below
-cargo, rather than integrates with cargo support.
+Considerations:
+- The name should tie it back to `cargo` to convey that relationship
+- The command run in a `#!` line should not require arguments (e.g. not
+  `#!/usr/bin/env cargo <something>`) because it will fail.  `env` treats the
+  rest of the line as the bin name, spaces included.  You need to use `env -S`
+  but that wasn't supported on macOS at least, last I tested.
+- Either don't have a name that looks like a cargo-plugin (e.g. not
+  `cargo-<something>`) to avoid confusion or make it work (by default, `cargo
+  something` translates to `cargo-something something` which would be ambiguous
+  of whether `something` is a script or subcommand)
 
-When naming it `cargo <something>`, `#!/usr/bin/env cargo <something>` will
-fail because `env` treats the rest of the line as the bin name, spaces
-included.  You need to use `env -S` but that wasn't supported at least on macOS
-last I tested.
-
-When naming `cargo-<something>` (e.g. `cargo-script`), we are following the
-convention of a cargo plugin and users have full right to expect it to work but
-it will fail because cargo will run it as
-`cargo-<something> <something>`.
+Candidates
+- `cargo-script`:
+  - Out of scope
+  - Verb preferred
+- `cargo-shell`:
+  - Out of scope
+  - Verb preferred
+- `cargo-run`:
+  - This would be shorthand for `cargo run --manifest-path <script>.rs`
+  - Might be confusing to have slightly different CLI between `cargo-run` and `cargo run`
+  - Could add a positional argument to `cargo run` but those are generally avoided in cargo commands
+- `cargo-eval`:
+  - Currently selected proposal
 
 # Prior art
 [prior-art]: #prior-art
@@ -211,6 +235,11 @@ representation of the result if it isn't `()`.
 ## A REPL
 
 See the [REPL exploration](https://github.com/epage/cargo-script-mvs/discussions/102)
+
+In terms of the CLI side of this, we could name this `cargo shell` where it
+drops you into an interactive shell within your current package, loading the
+existing dependencies (including dev).  This would then be a natural fit to also have a `--eval
+<expr>` flag.
 
 ## Workspace Support
 

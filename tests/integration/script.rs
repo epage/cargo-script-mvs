@@ -10,7 +10,7 @@ fn rebuild() {
         .assert()
         .success()
         .stderr_matches(
-            "   Compiling cecho v0.0.0 ([CWD]/target/shell/[..]/cecho)
+            "   Compiling cecho v0.0.0 ([CWD]/target/eval/[..]/cecho)
     Finished dev [unoptimized + debuginfo] target(s) in [..]s
      Running `[CWD]/target/debug/cecho_[..][EXE]`
 ",
@@ -46,7 +46,7 @@ fn rebuild() {
         .assert()
         .success()
         .stderr_matches(
-            "   Compiling cecho v0.0.0 ([CWD]/target/shell/[..]/cecho)
+            "   Compiling cecho v0.0.0 ([CWD]/target/eval/[..]/cecho)
     Finished dev [unoptimized + debuginfo] target(s) in [..]s
      Running `[CWD]/target/debug/cecho_[..][EXE]`
 ",

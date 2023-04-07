@@ -25,7 +25,7 @@ impl Fixture {
             .unwrap();
         subst.insert("[EXE]", std::env::consts::EXE_SUFFIX).unwrap();
         let assert = snapbox::Assert::new().substitutions(subst);
-        snapbox::cmd::Command::new(snapbox::cmd::cargo_bin("cargo-shell"))
+        snapbox::cmd::Command::new(snapbox::cmd::cargo_bin("cargo-eval"))
             .env("CARGO_TARGET_DIR", &self.target_path)
             .with_assert(assert)
     }
@@ -35,15 +35,3 @@ impl Fixture {
         self.fixture.close().unwrap();
     }
 }
-
-macro_rules! with_output_marker {
-    (prelude $p:expr; $e:expr) => {
-        format!(concat!($p, "{}", $e), crate::util::OUTPUT_MARKER_CODE)
-    };
-
-    ($e:expr) => {
-        format!(concat!("{}", $e), crate::util::OUTPUT_MARKER_CODE)
-    };
-}
-
-pub const OUTPUT_MARKER_CODE: &str = "println!(\"--output--\");";
