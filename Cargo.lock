@@ -241,7 +241,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "cargo-eval"
+name = "cargo-platform"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cbdb825da8a5df079a43676dbe042702f1707b1109f713a01420fbb4cc71fa27"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "cargo-script-mvs"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -259,15 +268,6 @@ dependencies = [
  "regex",
  "snapbox",
  "toml",
-]
-
-[[package]]
-name = "cargo-platform"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbdb825da8a5df079a43676dbe042702f1707b1109f713a01420fbb4cc71fa27"
-dependencies = [
- "serde",
 ]
 
 [[package]]

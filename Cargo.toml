@@ -1,7 +1,7 @@
 [package]
-name = "cargo-eval"
+name = "cargo-script-mvs"
 version = "0.1.0"
-description = "Command-line tool to run Rust \"scripts\" which can make use of crates."
+description = "Proposed cargo command for treat .rs files as full packages"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/epage/cargo-script-mvs"
 documentation = "https://github.com/epage/cargo-script-mvs"
@@ -31,6 +31,9 @@ pre-release-replacements = [
 [features]
 vendored-libgit2 = ["cargo/vendored-libgit2"]
 vendored-openssl = ["cargo/vendored-openssl"]
+
+[lib]
+name = "cargo_eval"
 
 [dependencies]
 anyhow = "1.0.69"
