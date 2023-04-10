@@ -529,6 +529,21 @@ D
   - `--force` to rebuild
   - `--main` for adding an empty `main`, e.g. when running a file with tests
 
+Java
+- [jbang](https://www.jbang.dev/)
+  - `jbang init` w/ templates
+  - `jbang edit` support, setting up a recommended editor w/ environment
+  - Discourages `#!` and instead encourages looking like shell code with `///usr/bin/env jbang "$0" "$@" ; exit $?`
+  - Dependencies and compiler flags controlled via comment-directives, including
+    - `//DEPS info.picocli:picocli:4.5.0` (gradle-style locators)
+      - Can declare one dependency as the source of versions for other dependencies (bom-pom)
+    - `//COMPILE_OPTIONS <flags>`
+    - `//NATIVE_OPTIONS <flags>`
+    - `//RUNTIME_OPTIONS <flags>`
+  - Can run code blocks from markdown
+  - `--code` flag to execute code on the command-line
+  - Accepts scripts from `stdin`
+
 Bash
 - `bash` to get an interactive way of entering code
 - `bash file` will run the code in `file,` searching in `PATH` if it isn't available locally
