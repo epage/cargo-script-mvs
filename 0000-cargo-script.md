@@ -447,6 +447,16 @@ Candidates
 - `cargo-eval`:
   - Currently selected proposal
   - How do we describe the difference between this and `cargo-run`?
+- `cargo`:
+  - Mirror Haskell's `cabal`
+  - Could run into confusion with subcommands but only
+    - the script is in the `PATH`
+    - the script doesn't have a file extension
+    - You are trying to run it as `cargo <script>` (at least on my machine, `#!` invocations canonicalize the file name)
+  - Might affect the quality of error messages for invalid subcommands unless we just assume
+  - Restricts access to more complex compiler settings unless a user switches
+    over to `cargo run` which might have different defaults (e.g. `cargo-eval`
+    sets `RUST_BACKTRACE=1`)
 
 ## First vs Third Party
 
@@ -543,6 +553,17 @@ Java
   - Can run code blocks from markdown
   - `--code` flag to execute code on the command-line
   - Accepts scripts from `stdin`
+
+Haskell
+- [cabal's single-file haskel script](https://cabal.readthedocs.io/en/stable/getting-started.html#run-a-single-file-haskell-script)
+  - Command is just `cabal`, which could run into weird situations if a file has the same name as a subcommand
+  - Manifest is put in a multi-line comment that starts with `cabal:`
+  - Scripts are run with `--quiet`, regardless of which invocation is used
+  - Documented in their "Getting Started" and then documented further under `cabal run`.
+- [`stack script`](https://www.wespiser.com/posts/2020-02-02-Command-Line-Haskell.html)
+  - `stack` acts as a shortcut for use in `#!`
+  - Delegates resolver information but can be extended on the command-line
+  - Command-line flags may be specified in a multi-line comment starting with `stack script`
 
 Bash
 - `bash` to get an interactive way of entering code
