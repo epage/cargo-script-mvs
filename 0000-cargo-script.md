@@ -481,6 +481,34 @@ We would add a non-default association to run the file.  We don't want it to be
 a default, by default, to avoid unintended harm and due to the likelihood
 someone is going to want to edit these files.
 
+## File extension
+
+Should these files use `.rs` or a custom file extension?
+
+Reasons for a unique file type
+- Semantics are different than a normal `.rs` file
+  - Except already a normal `.rs` file has context-dependent semantics (rest of
+    project, `Cargo.toml`, etc), so this doesn't seem too far off
+- Different file associations for Windows
+- Better detection by tools for the new semantics (particularly `rust-analyzer`)
+
+Downsides to a custom extension
+- Limited support by different tools (rust-analyzer, syntax highlighting, non-LSP editor actions) as adoptin rolls out
+
+At this time, we do not see enough reason to use a custom extension when facing the downsides to a slow roll out.
+
+If we adopted a unique file extensions, some options include:
+- `.crs` (`cargo-script`)
+- `.ers` (`rust-script`)
+  - No connection back to cargo
+- `.rss`
+  - No connection back to cargo
+- `.rsscript`
+  - No connection back to cargo
+  - Unwieldy
+- `.rspkg`
+  - No connection back to cargo
+
 # Prior art
 [prior-art]: #prior-art
 
