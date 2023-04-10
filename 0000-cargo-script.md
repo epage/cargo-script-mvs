@@ -463,10 +463,18 @@ Candidates
 As mentioned, a reason for being first-party is to standardize the convention
 for this which also allows greater interop.
 
-This also improves the overall experience since you can run `cargo test
---manifest-path script.rs` rather than the third-party tool trying to cover
-every `cargo` workflow in a slightly different way than the regular cargo
-workflow.
+A default implementation ensures people will use it.  For example, `clap`
+received an issue with a reproduction case using a `cargo-play` script that
+went unused because it just wasn't worth installing yet another, unknown tool.
+
+This also improves the overall experience as you do not need the third-party
+command to replicate support for every potential feature including:
+- `cargo test` and other built-in cargo commands
+- `cargo expand` and other third-party cargo commands
+- `rust-analyzer` and other editor/IDE integration
+
+While other third-party cargo commands might not immediately adopt single-file
+packages, first-party support for them will help encourage their adoption.
 
 This still leaves room for third-party implementations, either differentiating themselves or experimenting with
 - Alternative caching mechanisms for lower overhead
