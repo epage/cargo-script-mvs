@@ -320,6 +320,8 @@ Supported forms of embedded manifest are:
 ``````
 
 Inferred / defaulted manifest fields:
+- `package.name = <slugifiedfile stem>`
+- `package.version = "0.0.0"` to [call attention to this crate being used in unexpected places](https://matklad.github.io/2021/08/22/large-rust-workspaces.html#Smaller-Tips)
 - `package.publish = false` to avoid accidental publishes, particularly if we
   later add support for including them in a workspace.
 - `package.edition = <current>` to avoid always having to add an embedded
