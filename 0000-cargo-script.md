@@ -297,7 +297,7 @@ files), we are adding the concept of single-file packages which may contain an
 embedded manifest.  There is no required distinguishment for a single-file
 `.rs` package from any other `.rs` file.
 
-A single-file package may contain an embedded manfiest.  An embedded manifest
+A single-file package may contain an embedded manifest.  An embedded manifest
 is stored using `TOML` in a markdown code-fence with `cargo` at the start of the
 infostring inside a target-level doc-comment.
 
@@ -338,7 +338,7 @@ A single-file package is accepted by cargo commands as a `--manifest-path`
 - This is distinguished by the file extension (`.rs`) and that it is a file.
 - This allows running `cargo test --manifest-path single.rs`
 - `cargo package` / `cargo publish` will normalize this into a multi-file package
-- `cargo add` and `cargo remove` may not support editing embeded manifests initially
+- `cargo add` and `cargo remove` may not support editing embedded manifests initially
 - Path-dependencies may not refer to single-file packages at this time (they don't have a `lib` target anyways)
 
 ## `cargo-eval`
@@ -384,7 +384,7 @@ Most other flags and behavior will be similar to `cargo run`.
 [drawbacks]: #drawbacks
 
 At the moment, the doc-comment parsing is brittle, relying on regexes, to
-extract it and then requires a heavy depedency (a markdown parser) to get the
+extract it and then requires a heavy dependency (a markdown parser) to get the
 code fence.0
 
 The implicit content of the manifest will be unclear for users.  We can patch
@@ -585,7 +585,7 @@ Cross-language
   - It would be relatively easy to get this with `.cargo/config.toml` but doing
     so for rustup would require a new proxy that understands `cargo-eval`s
     CLI.
-  - This would also reduce unnecesary rebuilds when running a personal script
+  - This would also reduce unnecessary rebuilds when running a personal script
     (from `PATH`) in a project that has an unrelated `.cargo/config.toml`
 
 # Future possibilities
@@ -611,7 +611,7 @@ drops you into an interactive shell within your current package, loading the
 existing dependencies (including dev).  This would then be a natural fit to also have a `--eval
 <expr>` flag.
 
-Ideally, this repl would also allow the equivelant of `python -i <file>`, not
+Ideally, this repl would also allow the equivalent of `python -i <file>`, not
 to run existing code but to make a specific file's API items available for use
 to do interactive whitebox testing of private code within a larger project.
 
