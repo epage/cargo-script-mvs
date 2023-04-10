@@ -475,6 +475,12 @@ This still leaves room for third-party implementations, either differentiating t
 - Short-hand dependency syntax (e.g. `//# serde_json = "*"`)
 - Prioritizing other workflows, like runtime performance
 
+## File association on Windows
+
+We would add a non-default association to run the file.  We don't want it to be
+a default, by default, to avoid unintended harm and due to the likelihood
+someone is going to want to edit these files.
+
 # Prior art
 [prior-art]: #prior-art
 
@@ -603,11 +609,6 @@ Cross-language
 - Can we have both script stability and make it easy to be on the latest edition?
 - Could somehow "lock" to what is currently in the shared script cache to avoid
   each script getting the latest version of a crate, causing churn in `target/`?
-- Should rustup associate `.rs` files with `cargo-eval`?
-  - Some descendants of `cargo-script` use an alternative extension for this
-    (`.ers`, `.crs`) but other languages, like Python, do not try to make such
-    distinguishments.
-  - Most people would likely want the editor to be the default association
 - Since single-file packages cannot be inferred and require an explicit
   `--manifest-path`, is there an alternative shorthand we should provide, like
   a short-flag for `--manifest-path`?
