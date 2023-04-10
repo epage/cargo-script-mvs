@@ -589,6 +589,8 @@ Java
   - Accepts scripts from `stdin`
 
 Haskell
+- [`runghc` / `runhaskell`](https://downloads.haskell.org/ghc/latest/docs/users_guide/runghc.html)
+  - Users can use the file stem (ie leave off the extension) when passing it in
 - [cabal's single-file haskel script](https://cabal.readthedocs.io/en/stable/getting-started.html#run-a-single-file-haskell-script)
   - Command is just `cabal`, which could run into weird situations if a file has the same name as a subcommand
   - Manifest is put in a multi-line comment that starts with `cabal:`
