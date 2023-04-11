@@ -637,6 +637,9 @@ Go
   - Implicit garbage collection for build cache
   - Project metadata is specified in HEREDOCs in comments
 
+Perl
+- [Re-interprets the `#!`](https://stackoverflow.com/questions/38059830/how-does-perl-avoid-shebang-loops)
+
 Ruby
 - [`bundler/inline`](https://bundler.io/guides/bundler_in_a_single_file_ruby_script.html)
   - Uses a code-block to define dependencies, making them available for use
