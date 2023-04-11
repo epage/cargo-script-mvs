@@ -454,6 +454,9 @@ Candidates
   - Could add a positional argument to `cargo run` but those are generally avoided in cargo commands
 - `cargo-eval`:
   - Currently selected proposal
+  - Might convey REPL behavior
+  - How do we describe the difference between this and `cargo-run`?
+- `cargo-exec`
   - How do we describe the difference between this and `cargo-run`?
 - `cargo`:
   - Mirror Haskell's `cabal`
