@@ -444,6 +444,93 @@ Guidelines used in design decision making include
       file that gets passed to cargo which will cause errors to point to the
       wrong file
 
+## Embedded Manifest Format
+
+Considerations for embedded manifest include
+- How obvious it is for new users when they see it
+- How easy it is for newer users to remember it and type it out
+- How machine editable it is for `cargo add` and friends
+- Needs to be valid Rust code based on the earlier stated design guidelines
+
+**Option 1: Doc-comment**
+
+```rust
+#!/usr/bin/env cargo-eval
+
+//! ```cargo
+//! [package]
+//! edition = "2018"
+//! ```
+
+fn main() {
+}
+```
+
+This has the advantage of using existing, familiar syntax both to read and write.
+
+**Option 2: Macro**
+
+```rust
+#!/usr/bin/env cargo-eval
+
+cargo! {
+[package]
+edition = "2018"
+}
+
+fn main() {
+}
+```
+- The `cargo` macro would need to come from somewhere (`std`?) which means it is taking on `cargo`-specific knowledge
+- A lot of tools/IDEs have problems in dealing with macros
+- Free-form rust code makes it harder for cargo to make edits to the manifest
+
+**Option 3: Attribute**
+
+```rust
+#!/usr/bin/env cargo-eval
+
+#![cargo(manifest = r#"
+[package]
+edition = "2018"
+"#)]
+
+fn main() {
+}
+```
+- `cargo` could register this attribute or `rustc` could get a generic `metadata` attribute
+- I posit that this syntax is more intimidating to read and write for newer users
+- Free-form rust code makes it harder for cargo to make edits to the manifest
+- As an alternative, `manifest` could a less stringly-typed format but that
+  makes it harder for cargo to parse and edit, makes it harder to migrate
+  between single and multi-file packages, and makes it harder to transfer
+  knowledge and experience
+
+**Option 4: Presentation Streams**
+
+YAML allows several documents to be concatenated together variant
+[presentation streams](https://yaml.org/spec/1.2.2/#323-presentation-stream).
+What if we extended Rust's syntax to allow something similar?
+
+```rust
+#!/usr/bin/env cargo-eval
+
+fn main() {
+}
+
+---Cargo.toml
+[package]
+edition = "2018"
+```
+- Easiest for machine parsing and editing
+- Flexible for manifest, lockfile, and other content
+- Being new syntax, there would be a lot of details to work out, including
+  - How to delineate and label documents
+  - How to allow escaping to avoid conflicts with content in a documents
+  - Potentially an API for accessing the document from within Rust
+- Unfamiliar syntax, unclear how it will work out for newer users
+  - Technically users deal with YAML's syntax for this regularly via frontmatter in many static site generators
+
 ## `edition`
 
 [The `edition` field controls what variant of cargo and the Rust language to use to interpret everything.](https://doc.rust-lang.org/edition-guide/introduction.html)
