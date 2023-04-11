@@ -1,6 +1,6 @@
 [package]
 name = "cargo-script-mvs"
-version = "0.1.0"
+version = "0.2.0"
 description = "Proposed cargo command for treat .rs files as full packages"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/epage/cargo-script-mvs"
