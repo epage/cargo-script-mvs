@@ -392,6 +392,13 @@ code fence.
 The implicit content of the manifest will be unclear for users.  We can patch
 over this as best we can in documentation but the result won't be ideal.
 
+The `bin.name` assigned to the script included a hash as an implementation
+detail of the shared cache (for improving build times).  This makes
+programmatic choices off of `argv[0]` not work like normal (e.g. multi-call
+binaries).  We could settings
+[`argv[0]` on unix-like systems](https://doc.rust-lang.org/std/os/unix/process/trait.CommandExt.html#tymethod.arg0)
+but could not find something similar for Windows.
+
 This increases the maintenance and support burden for the cargo team, a team
 that is already limited in its availability.
 
