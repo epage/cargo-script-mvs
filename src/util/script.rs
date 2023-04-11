@@ -16,10 +16,10 @@ impl RawScript {
     pub fn parse_from(path: &std::path::Path) -> CargoResult<Self> {
         let body = std::fs::read_to_string(path)
             .with_context(|| format!("failed to script at {}", path.display()))?;
-        Ok(Self::parse(&body, path))
+        Self::parse(&body, path)
     }
 
-    pub fn parse(body: &str, path: &std::path::Path) -> Self {
+    pub fn parse(body: &str, path: &std::path::Path) -> CargoResult<Self> {
         let comment = match extract_comment(body) {
             Ok(manifest) => Some(manifest),
             Err(err) => {
@@ -28,7 +28,7 @@ impl RawScript {
             }
         }
         .unwrap_or_default();
-        let manifest = match extract_manifest(&comment) {
+        let manifest = match extract_manifest(&comment)? {
             Some(manifest) => Some(manifest),
             None => {
                 log::trace!("failed to extract manifest");
@@ -38,11 +38,11 @@ impl RawScript {
         .unwrap_or_default();
         let body = body.to_owned();
         let path = path.to_owned();
-        Self {
+        Ok(Self {
             manifest,
             body,
             path,
-        }
+        })
     }
 
     pub fn to_workspace<'cfg>(
@@ -368,7 +368,7 @@ fn extract_comment(input: &str) -> CargoResult<String> {
 }
 
 /// Extracts the first `Cargo` fenced code block from a chunk of Markdown.
-fn extract_manifest(comment: &str) -> Option<String> {
+fn extract_manifest(comment: &str) -> CargoResult<Option<String>> {
     use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag};
 
     // To match librustdoc/html/markdown.rs, opts.
@@ -382,8 +382,13 @@ fn extract_manifest(comment: &str) -> Option<String> {
     for item in md {
         match item {
             Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(ref info)))
-                if info.to_lowercase() == "cargo" && output.is_none() =>
+                if info.to_lowercase() == "cargo" =>
             {
+                if output.is_some() {
+                    anyhow::bail!("multiple `cargo` manifests present")
+                } else {
+                    output = Some(String::new());
+                }
                 inside = true;
             }
             Event::Text(ref text) if inside => {
@@ -397,7 +402,7 @@ fn extract_manifest(comment: &str) -> Option<String> {
         }
     }
 
-    output
+    Ok(output)
 }
 
 #[cfg(test)]
@@ -407,6 +412,7 @@ mod test_expand {
     macro_rules! si {
         ($i:expr) => {
             RawScript::parse($i, std::path::Path::new("/home/me/test.rs"))
+                .unwrap_or_else(|err| panic!("{}", err))
                 .expand_manifest(&cargo::util::Config::default().unwrap())
                 .unwrap_or_else(|err| panic!("{}", err))
         };
@@ -743,7 +749,8 @@ mod test_manifest {
             smm!(
                 r#"There is no manifest in this comment.
 "#
-            ),
+            )
+            .unwrap(),
             None
         );
     }
@@ -764,7 +771,8 @@ println!("Nor is this.");
 
     Or this.
 "#
-            ),
+            )
+            .unwrap(),
             None
         );
     }
@@ -779,7 +787,8 @@ println!("Nor is this.");
 dependencies = { time = "*" }
 ```
 "#
-            ),
+            )
+            .unwrap(),
             Some(
                 r#"dependencies = { time = "*" }
 "#
@@ -804,7 +813,8 @@ This *is*:
 dependencies = { time = "*" }
 ```
 "#
-            ),
+            )
+            .unwrap(),
             Some(
                 r#"dependencies = { time = "*" }
 "#
@@ -815,9 +825,8 @@ dependencies = { time = "*" }
 
     #[test]
     fn test_two_cargo_code_fence() {
-        assert_eq!(
-            smm!(
-                r#"This is a manifest:
+        assert!(smm!(
+            r#"This is a manifest:
 
 ```cargo
 dependencies = { time = "*" }
@@ -829,12 +838,7 @@ So is this, but it doesn't count:
 dependencies = { explode = true }
 ```
 "#
-            ),
-            Some(
-                r#"dependencies = { time = "*" }
-"#
-                .into()
-            )
-        );
+        )
+        .is_err());
     }
 }
