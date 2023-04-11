@@ -299,7 +299,9 @@ embedded manifest.  There is no required distinguishment for a single-file
 
 A single-file package may contain an embedded manifest.  An embedded manifest
 is stored using `TOML` in a markdown code-fence with `cargo` at the start of the
-infostring inside a target-level doc-comment.
+infostring inside a target-level doc-comment.  It is an error to have multiple
+`cargo` code fences in the target-level doc-comment.  We can relax this later,
+either merging the code fences or ignoring later code fences.
 
 Supported forms of embedded manifest are:
 ``````rust
