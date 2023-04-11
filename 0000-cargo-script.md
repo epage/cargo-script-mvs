@@ -516,6 +516,13 @@ Downsides to a custom extension
 
 At this time, we do not see enough reason to use a custom extension when facing the downsides to a slow roll out.
 
+While `rust-analyzer` needs to be able to distinguish regular `.rs` files from
+single-file packages to look up the relevant manifest to perform operations, we
+propose that be through checking the `#!` line (e.g.
+[how perl detects perl in the `#!`](https://stackoverflow.com/questions/38059830/how-does-perl-avoid-shebang-loops).
+While this adds boilerplate for Windows developers, this helps encourage
+cross-platform development.
+
 If we adopted a unique file extensions, some options include:
 - `.crs` (`cargo-script`)
 - `.ers` (`rust-script`)
