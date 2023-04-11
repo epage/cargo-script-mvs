@@ -524,16 +524,17 @@ While this adds boilerplate for Windows developers, this helps encourage
 cross-platform development.
 
 If we adopted a unique file extensions, some options include:
-- `.crs` (`cargo-script`)
-- `.ers` (`rust-script`)
+- `.crs` (used by `cargo-script`)
+- `.ers` (used by `rust-script`)
   - No connection back to cargo
 - `.rss`
   - No connection back to cargo
+  - Confused with RSS
 - `.rsscript`
   - No connection back to cargo
   - Unwieldy
 - `.rspkg`
-  - No connection back to cargo
+  - No connection back to cargo but conveys its a single-file package
 
 # Prior art
 [prior-art]: #prior-art
