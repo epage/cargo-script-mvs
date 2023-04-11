@@ -387,7 +387,7 @@ Most other flags and behavior will be similar to `cargo run`.
 
 At the moment, the doc-comment parsing is brittle, relying on regexes, to
 extract it and then requires a heavy dependency (a markdown parser) to get the
-code fence.0
+code fence.
 
 The implicit content of the manifest will be unclear for users.  We can patch
 over this as best we can in documentation but the result won't be ideal.
