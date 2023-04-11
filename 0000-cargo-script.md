@@ -450,6 +450,7 @@ A policy on this needs to balance
 - Matching the expectation of a reproducible Rust experience
 - Users wanting the latest experience, in general
 - Boilerplate runs counter to experimentation and prototyping
+- There might not be a backing file if we read from `stdin`
 
 **Option 1: Fixed Default**
 
@@ -524,6 +525,8 @@ is automatically converted to
 fn main() {
 }
 ```
+
+This won't work for the `stdin` case.
 
 **Option 5: `cargo-eval --edition <YEAR>`**
 
