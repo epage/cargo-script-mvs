@@ -375,10 +375,11 @@ Similarly, we will invert the default for `RUST_BACKTRACE`, enabling it by
 default, to provide more context to aid in debugging of panics.
 
 To not mix in cargo and user output, `cargo-eval` will run as if with `--quiet` by
-default.  A single `--verbose` gives the default `cargo run` output.  Add
-more to be like adding `--verbose` to `cargo run` in the first place.  In the
-future, cargo may provide progress bars when stdout is interactive, but they
-will be cleared by the time cargo is done.
+default, like with `cabal` in Haskell.  On success, `cargo-eval` will print
+nothing while error messages will be shown on failure.  In the future, we can
+explore showing progress bars if `stdout` is interactive but they will be
+cleared by the time cargo is done.  A single `--verbose` will restore normal
+output and subsequent `--verbose`s will act like normal.
 
 Most other flags and behavior will be similar to `cargo run`.
 
