@@ -411,6 +411,34 @@ rarer).
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
+Guidelines used in design decision making include
+- Single-file packages should have a first-class experience
+  - Provides a higher quality of experience (doesn't feel like a hack or tacked on)
+  - Transferable knowledge, whether experience, stackoverflow answers, etc
+  - Easier unassisted migration between single-file and multi-file packages
+  - Example implications:
+    - Workflows, like running tests, should be the same as multi-file packages rather than being bifurcated
+    - Manifest formats should be the same rather than using a specialized schema or data format
+- Friction for starting a new single-file package should be minimal
+  - Easy to remember, minimal syntax so people are more likely to use it in
+    one-off cases, experimental or prototyping use cases without tool assistance
+  - Example implications:
+    - Embedded manifest is optional which also means we can't require users specifying `edition`
+    - See also the implications for first-class experience
+    - Workspaces for single-file packages should not be auto-discovered as that
+      will break unless the workspaces also owns the single-file package which
+      will break workflows for just creating a file anywhere to try out an
+      idea.
+- Cargo/rustc diagnostics and messages (including `cargo metadata`) should be
+  in terms of single-file packages and not any temporary files
+  - Easier to understand the messages
+  - Provides a higher quality of experience (doesn't feel like a hack or tacked on)
+  - Example implications:
+    - Most likely, we'll need single-file packages to be understood directly by
+      rustc so cargo doesn't have to split out the `.rs` content into a temp
+      file that gets passed to cargo which will cause errors to point to the
+      wrong file
+
 ## Scope
 
 The `cargo-script` family of tools has a single command
