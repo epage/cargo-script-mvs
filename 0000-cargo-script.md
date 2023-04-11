@@ -348,6 +348,10 @@ A single-file package is accepted by cargo commands as a `--manifest-path`
 - `cargo add` and `cargo remove` may not support editing embedded manifests initially
 - Path-dependencies may not refer to single-file packages at this time (they don't have a `lib` target anyways)
 
+The lockfile for single-file packages will be placed in `CARGO_TARGET_DIR`.  In
+the future, when workspaces are supported, that will allow a user to have a
+persistent lockfile.
+
 ## `cargo-eval`
 
 `cargo-eval` is intended for putting in the `#!` for single-file packages:
