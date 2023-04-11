@@ -326,6 +326,9 @@ Inferred / defaulted manifest fields:
   later add support for including them in a workspace.
 - `package.edition = <current>` to avoid always having to add an embedded
   manifest at the cost of potentially breaking scripts on rust upgrades
+  - Warn when `edition` is unspecified.  While with `cargo-eval` this will be
+    silenced by default, users wanting stability are also likely to be using
+    other commands, like `cargo test` and will see it.
 
 Disallowd manifest fields:
 - `[workspace]`, `[lib]`, `[[bin]]`, `[[example]]`, `[[test]]`, `[[bench]]`
