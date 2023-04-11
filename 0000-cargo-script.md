@@ -509,7 +509,9 @@ fn main() {
 **Option 4: Presentation Streams**
 
 YAML allows several documents to be concatenated together variant
-[presentation streams](https://yaml.org/spec/1.2.2/#323-presentation-stream).
+[presentation streams](https://yaml.org/spec/1.2.2/#323-presentation-stream)
+which might seem familiar as this is frequently used in static-site generators
+for adding frontmatter to pages.
 What if we extended Rust's syntax to allow something similar?
 
 ```rust
@@ -528,8 +530,7 @@ edition = "2018"
   - How to delineate and label documents
   - How to allow escaping to avoid conflicts with content in a documents
   - Potentially an API for accessing the document from within Rust
-- Unfamiliar syntax, unclear how it will work out for newer users
-  - Technically users deal with YAML's syntax for this regularly via frontmatter in many static site generators
+- Unfamiliar, new syntax, unclear how it will work out for newer users
 
 ## `edition`
 
