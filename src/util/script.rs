@@ -376,7 +376,7 @@ fn extract_manifest(comment: &str) -> Option<String> {
 
     let md = Parser::new_ext(comment, exts);
 
-    let mut found = false;
+    let mut inside = false;
     let mut output = None;
 
     for item in md {
@@ -384,14 +384,14 @@ fn extract_manifest(comment: &str) -> Option<String> {
             Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(ref info)))
                 if info.to_lowercase() == "cargo" && output.is_none() =>
             {
-                found = true;
+                inside = true;
             }
-            Event::Text(ref text) if found => {
+            Event::Text(ref text) if inside => {
                 let s = output.get_or_insert(String::new());
                 s.push_str(text);
             }
-            Event::End(Tag::CodeBlock(_)) if found => {
-                found = false;
+            Event::End(Tag::CodeBlock(_)) if inside => {
+                inside = false;
             }
             _ => (),
         }
