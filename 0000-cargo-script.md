@@ -455,6 +455,7 @@ Considerations for embedded manifest include
 - How easy it is for newer users to remember it and type it out
 - How machine editable it is for `cargo add` and friends
 - Needs to be valid Rust code based on the earlier stated design guidelines
+- Lockfiles might also need to reuse how we attach metadata to the file
 
 **Option 1: Doc-comment**
 
@@ -535,6 +536,104 @@ edition = "2018"
   - How to allow escaping to avoid conflicts with content in a documents
   - Potentially an API for accessing the document from within Rust
 - Unfamiliar, new syntax, unclear how it will work out for newer users
+
+## Lockfile
+
+[Lockfiles](https://doc.rust-lang.org/cargo/guide/cargo-toml-vs-cargo-lock.html)
+record the exact version used for every possible dependency to ensure
+reproducibility.  In particular, this protects against upgrading to broken
+versions and allows continued use of a yanked version.  As this time, the
+recommendation is for
+[`bin`s to persist their lockfile while `lib`s do not](https://doc.rust-lang.org/cargo/faq.html#why-do-binaries-have-cargolock-in-version-control-but-not-libraries).
+
+With multi-file packages, `cargo` writes a `Cargo.lock` file to the package
+directory.  As there is no package directory for single-file packages, we need
+to decide how to handle locking dependencies.
+
+Considerations
+- Sharing of single-file projects should be easy
+  - In "copy/paste" scenarios, like reproduction cases in issues, how often
+    have lockfiles been pertinent for reproduction?
+- There is an expectation of a reproducible Rust experience
+- Dropping of additional files might be frustrating for users to deal with (in
+  addition to making it harder to share it all)
+- We would need a way to store the lockfile for `stdin` without conflicting
+  with parallel runs
+- `cargo` already makes persisting of `Cargo.lock` optional for multi-file
+  packages, encouraging not persisting it in some cases
+- Newer users should feel comfortable reading and writing single-file packages
+- A future possibility is allowing single-file packages to belong to a
+  workspace at which point they would use the workspace's `Cargo.lock` file.
+  This limits the scope of the conversation and allows an alternative to
+  whatever is decided here.
+- Read-only single-file packages (e.g. running `/usr/bin/package.rs` without root privileges)
+
+**Location 1: In `CARGO_TARGET_DIR`**
+
+The path would include a hash of the manifest to avoid conflicts.
+
+- Transient location, lost with a `cargo clean --manifest-path foo.rs`
+- Hard to find for sharing on issues, if needed
+
+**Location 2: In `$CARGO_HOME`**
+
+The path would include a hash of the manifest to avoid conflicts.
+
+- Transient location though not lost with `cargo clean --manifest-path foo.rs`
+- No garbage collection to help with temporary source files, especially `stdin`
+
+**Location 3: As `<file-stem>.lock`**
+
+Next to `<file-stem>.rs`, we drop a `<file-stem>.lock` file.   We could add a
+`_` or `.` prefix to distinguish this from the regular files in the directory.
+
+- Users can discover this file location
+- Users can persist this file to the degree of their choosing
+- Users might not appreciate file "droppings" for transient cases
+- When sharing, this is a separate file to copy though its unclear how often that would be needed
+- A policy is needed when the location is read-only
+  - Fallback to a user-writeable location
+  - Always re-calculate the lockfile
+  - Error
+
+**Location 4: Embedded in the source**
+
+Embed in the single-file package the same way we do the manifest.  Resolving
+would insert/edit the lockfile entry.  Editing the file should be fine, in
+terms of rebuilds, because this would only happen in response to an edit.
+
+- Users can discover the location
+- Users are forced to persist the lock content if they are persisting the source
+- This makes it harder to resolve conflicts (users can't just checkout the old file and have it re-resolved)
+- A policy is needed when the location is read-only
+  - Fallback to a user-writeable location
+  - Always re-calculate the lockfile
+  - Error
+
+**Configuration 1: Hardcoded**
+
+Unless as a fallback due to a read-only location, the user has no control over the lockfile location.
+
+**Configuration 2: Command-line flag**
+
+A `cargo-eval --save` or `cargo-eval --lock` to tell `cargo` to look for and
+edit it in the persistent location and otherwise we use a transient location.
+
+- Passing flags in a `#!` doesn't work cross-platform
+
+**Configuration 3: A new manifest field**
+
+We could add a `workspace.lock` field to control some lockfile location
+behavior, what that is depends on the location on what policies we feel
+comfortable making.  This means we would allow limited access to the
+`[workspace]` table (currently the whole table is verboten).
+
+- Requires manifest design work that is likely specialized to just this feature
+
+**Configuration 4: User-created empty lockfile**
+
+The user could drop an empty lockfile in the agreed-to location and
+`cargo-eval` could detect that and use it.
 
 ## `edition`
 
