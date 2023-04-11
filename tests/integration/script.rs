@@ -16,6 +16,53 @@ fn basic() {
 }
 
 #[test]
+fn clean_output_with_edition() {
+    let fixture = crate::util::Fixture::new();
+
+    fixture
+        .cmd()
+        .arg("--verbose")
+        .arg("tests/data/has_edition.rs")
+        .env("CARGO_HOME", fixture.path().join("cargo_home")) // Avoid package cache lock messages
+        .assert()
+        .success()
+        .stderr_matches(
+            "   Compiling has_edition v0.0.0 ([CWD]/target/eval/[..]/has_edition)
+    Finished dev [unoptimized + debuginfo] target(s) in [..]s
+     Running `[CWD]/target/debug/has_edition_[..][EXE]`
+",
+        )
+        .stdout_eq(
+            "Hello world!
+",
+        );
+}
+
+#[test]
+fn warning_without_edition() {
+    let fixture = crate::util::Fixture::new();
+
+    fixture
+        .cmd()
+        .arg("--verbose")
+        .arg("tests/data/no_edition.rs")
+        .env("CARGO_HOME", fixture.path().join("cargo_home")) // Avoid package cache lock messages
+        .assert()
+        .success()
+        .stderr_matches(
+            "warning: `package.edition` is unspecifiead, defaulting to `2021`
+   Compiling no_edition v0.0.0 ([CWD]/target/eval/[..]/no_edition)
+    Finished dev [unoptimized + debuginfo] target(s) in [..]s
+     Running `[CWD]/target/debug/no_edition_[..][EXE]`
+",
+        )
+        .stdout_eq(
+            "Hello world!
+",
+        );
+}
+
+#[test]
 fn eval_explicit_stdin() {
     let fixture = crate::util::Fixture::new();
     let stdin = std::fs::read_to_string("tests/data/hello_world.rs").unwrap();
@@ -83,7 +130,8 @@ fn rebuild() {
         .assert()
         .success()
         .stderr_matches(
-            "   Compiling cecho v0.0.0 ([CWD]/target/eval/[..]/cecho)
+            "warning: `package.edition` is unspecifiead, defaulting to `2021`
+   Compiling cecho v0.0.0 ([CWD]/target/eval/[..]/cecho)
     Finished dev [unoptimized + debuginfo] target(s) in [..]s
      Running `[CWD]/target/debug/cecho_[..][EXE]`
 ",
@@ -101,7 +149,8 @@ fn rebuild() {
         .assert()
         .success()
         .stderr_matches(
-            "    Finished dev [unoptimized + debuginfo] target(s) in [..]s
+            "warning: `package.edition` is unspecifiead, defaulting to `2021`
+    Finished dev [unoptimized + debuginfo] target(s) in [..]s
      Running `[CWD]/target/debug/cecho_[..][EXE]`
 ",
         )
@@ -119,7 +168,8 @@ fn rebuild() {
         .assert()
         .success()
         .stderr_matches(
-            "   Compiling cecho v0.0.0 ([CWD]/target/eval/[..]/cecho)
+            "warning: `package.edition` is unspecifiead, defaulting to `2021`
+   Compiling cecho v0.0.0 ([CWD]/target/eval/[..]/cecho)
     Finished dev [unoptimized + debuginfo] target(s) in [..]s
      Running `[CWD]/target/debug/cecho_[..][EXE]`
 ",

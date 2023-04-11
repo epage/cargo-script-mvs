@@ -58,12 +58,16 @@ impl RawScript {
         // - Create an "ephemeral" workspace **but** compilation re-loads ephemeral workspaces
         //   from the registry rather than what we already have on memory, causing it to fail
         //   because the registry doesn't know about embedded manifests.
-        let manifest_path = self.write(target_dir.as_path_unlocked())?;
+        let manifest_path = self.write(config, target_dir.as_path_unlocked())?;
         let workspace = cargo::core::Workspace::new(&manifest_path, config)?;
         Ok(workspace)
     }
 
-    fn write(&self, target_dir: &std::path::Path) -> CargoResult<std::path::PathBuf> {
+    fn write(
+        &self,
+        config: &cargo::Config,
+        target_dir: &std::path::Path,
+    ) -> CargoResult<std::path::PathBuf> {
         let hash = self.hash().to_string();
         assert_eq!(hash.len(), 64);
         let mut workspace_root = target_dir.to_owned();
@@ -80,7 +84,7 @@ impl RawScript {
         })?;
         let manifest_path = workspace_root.join("Cargo.toml");
         let manifest = self
-            .expand_manifest_()
+            .expand_manifest_(config)
             .with_context(|| format!("failed to parse manifest at {}", self.path.display()))?;
         let manifest = remap_paths(
             manifest,
@@ -93,15 +97,15 @@ impl RawScript {
         Ok(manifest_path)
     }
 
-    pub fn expand_manifest(&self) -> CargoResult<String> {
+    pub fn expand_manifest(&self, config: &cargo::Config) -> CargoResult<String> {
         let manifest = self
-            .expand_manifest_()
+            .expand_manifest_(config)
             .with_context(|| format!("failed to parse manifest at {}", self.path.display()))?;
         let manifest = toml::to_string_pretty(&manifest)?;
         Ok(manifest)
     }
 
-    fn expand_manifest_(&self) -> CargoResult<toml::Table> {
+    fn expand_manifest_(&self, config: &cargo::Config) -> CargoResult<toml::Table> {
         let mut manifest: toml::Table = toml::from_str(&self.manifest)?;
 
         for key in ["workspace", "lib", "bin", "example", "test", "bench"] {
@@ -132,9 +136,13 @@ impl RawScript {
         package
             .entry("version".to_owned())
             .or_insert_with(|| toml::Value::String(DEFAULT_VERSION.to_owned()));
-        package
-            .entry("edition".to_owned())
-            .or_insert_with(|| toml::Value::String(DEFAULT_EDITION.to_owned()));
+        package.entry("edition".to_owned()).or_insert_with(|| {
+            let _ = config.shell().warn(format_args!(
+                "`package.edition` is unspecifiead, defaulting to `{}`",
+                DEFAULT_EDITION
+            ));
+            toml::Value::String(DEFAULT_EDITION.to_owned())
+        });
         package
             .entry("publish".to_owned())
             .or_insert_with(|| toml::Value::Boolean(DEFAULT_PUBLISH));
@@ -399,7 +407,7 @@ mod test_expand {
     macro_rules! si {
         ($i:expr) => {
             RawScript::parse($i, std::path::Path::new("/home/me/test.rs"))
-                .expand_manifest()
+                .expand_manifest(&cargo::util::Config::default().unwrap())
                 .unwrap_or_else(|err| panic!("{}", err))
         };
     }
