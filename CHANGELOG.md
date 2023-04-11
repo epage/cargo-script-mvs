@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+### Compatibility
+
+- Error on multiple `cargo` embedded manifests
+
+### Fixes
+
+- Warn on missing `package.edition`
+
 ## [0.1.0] - 2023-04-01
 
 <!-- next-url -->
