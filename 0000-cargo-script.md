@@ -330,7 +330,7 @@ Inferred / defaulted manifest fields:
     silenced by default, users wanting stability are also likely to be using
     other commands, like `cargo test` and will see it.
 
-Disallowd manifest fields:
+Disallowed manifest fields:
 - `[workspace]`, `[lib]`, `[[bin]]`, `[[example]]`, `[[test]]`, `[[bench]]`
 - `package.workspace`, `package.build`, `package.links`, `package.autobins`, `package.autoexamples`, `package.autotests`, `package.autobenches`
 
