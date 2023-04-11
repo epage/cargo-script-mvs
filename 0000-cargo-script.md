@@ -604,7 +604,7 @@ terms of rebuilds, because this would only happen in response to an edit.
 
 - Users can discover the location
 - Users are forced to persist the lock content if they are persisting the source
-- This will likely be intimidating for new users
+- This will likely be intimidating for new users to read
 - This will be more awkward to copy/paste and browse in bug reports as just a `serde_json` lockfile is 89 lines long
 - This makes it harder to resolve conflicts (users can't just checkout the old file and have it re-resolved)
 - A policy is needed when the location is read-only
