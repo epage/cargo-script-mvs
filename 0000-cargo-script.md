@@ -442,6 +442,119 @@ Guidelines used in design decision making include
       file that gets passed to cargo which will cause errors to point to the
       wrong file
 
+## `edition`
+
+[The `edition` field controls what variant of cargo and the Rust language to use to interpret everything.](https://doc.rust-lang.org/edition-guide/introduction.html)
+
+A policy on this needs to balance
+- Matching the expectation of a reproducible Rust experience
+- Users wanting the latest experience, in general
+- Boilerplate runs counter to experimentation and prototyping
+
+**Option 1: Fixed Default**
+
+Multi-file packages default the edition to `2015`, effectively requiring every
+project to override it for a modern rust experience.  People are likely to get
+this by running `cargo new` and could easily forget it otherwise.
+```rust
+#!/usr/bin/env cargo-eval
+
+//! ```cargo
+//! [package]
+//! edition = "2018"
+//! ```
+
+fn main() {
+}
+```
+
+**Option 2: Latest as Default**
+
+Default to the `edition` for the current `cargo` version, assuming single-file
+packages will be transient in nature and users will want the current `edition`.
+
+Longer-lived single-file packages are likely to be used with
+- other cargo commands, like `cargo test`, so warning when `edition` is defaulted can raise awareness
+- workspaces (future possibility), where `cargo-eval` will implicitly inherit `workspace.edition`
+
+```rust
+#!/usr/bin/env cargo-eval
+
+fn main() {
+}
+```
+
+**Option 3: No default**
+
+It is invalid for an embedded manifest to be missing `edition`, erroring when it is missing.
+
+The minimal single-package file would end up being:
+```rust
+#!/usr/bin/env cargo-eval
+
+//! ```cargo
+//! [package]
+//! edition = "2018"
+//! ```
+
+fn main() {
+}
+```
+This dramatically increases the amount of boilerplate to get a single-file package going.
+
+**Option 4: Auto-insert latest**
+
+When the edition is unspecified, we edit the source to contain the latest edition.
+
+```rust
+#!/usr/bin/env cargo-eval
+
+fn main() {
+}
+```
+is automatically converted to
+```rust
+#!/usr/bin/env cargo-eval
+
+//! ```cargo
+//! [package]
+//! edition = "2018"
+//! ```
+
+fn main() {
+}
+```
+
+**Option 5: `cargo-eval --edition <YEAR>`**
+
+Users can do:
+```rust
+#!/usr/bin/env -S cargo-eval --edition 2018
+
+fn main() {
+}
+```
+
+The problem is this does not work on all platforms that support `#!`
+
+**Option 6: `carg-eval-<edition>` variants**
+
+Instead of an extra flag, we embed it in the binary name like:
+```rust
+#!/usr/bin/env -S cargo-eval-2018
+
+fn main() {
+}
+```
+`cargo-eval` would error if both are specified.
+
+On unix-like systems, these could be links to `cargo-eval` and `cargo-eval` can
+parse `argv[0]` to extract the `edition`.
+
+However, on Windows the best we can do is a proxy to redirect to `cargo-eval`.
+
+Over the next 40 years, we'll have dozen editions which will bloat the directory, both in terms of the number of files (which can slow things down) and in terms of file size on Windows.
+
 ## Scope
 
 The `cargo-script` family of tools has a single command
