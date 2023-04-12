@@ -447,6 +447,8 @@ Guidelines used in design decision making include
       rustc so cargo doesn't have to split out the `.rs` content into a temp
       file that gets passed to cargo which will cause errors to point to the
       wrong file
+    - Most likely, we'll want to muck with the errors returned by `toml_edit`
+      so we render manifest errors based on the original source code which will require acurate span information.
 
 ## Embedded Manifest Format
 
