@@ -505,10 +505,9 @@ fn main() {
 ```
 - `cargo` could register this attribute or `rustc` could get a generic `metadata` attribute
 - I posit that this syntax is more intimidating to read and write for newer users
-- Free-form rust code makes it harder for cargo to make edits to the manifest
 - As an alternative, `manifest` could a less stringly-typed format but that
-  makes it harder for cargo to parse and edit, makes it harder to migrate
-  between single and multi-file packages, and makes it harder to transfer
+  makes it harder for cargo to parse and edit, makes it harder for users to
+  migrate between single and multi-file packages, and makes it harder to transfer
   knowledge and experience
 
 **Option 4: Presentation Streams**
