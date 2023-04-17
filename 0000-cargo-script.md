@@ -615,7 +615,8 @@ terms of rebuilds, because this would only happen in response to an edit.
 
 **Configuration 1: Hardcoded**
 
-Unless as a fallback due to a read-only location, the user has no control over the lockfile location.
+Unless as a fallback due to a read-only location, the user has no control over
+the lockfile location.
 
 **Configuration 2: Command-line flag**
 
@@ -633,10 +634,11 @@ comfortable making.  This means we would allow limited access to the
 
 - Requires manifest design work that is likely specialized to just this feature
 
-**Configuration 4: User-created empty lockfile**
+**Configuration 4: Exitence Check**
 
-The user could drop an empty lockfile in the agreed-to location and
-`cargo-eval` could detect that and use it.
+`cargo-eval` can check if the lockfile exists in the agreed-to location and use
+it / update it.  To initially opt-in, a user could place an empty lockfile in
+that location.
 
 ## `edition`
 
