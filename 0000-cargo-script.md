@@ -944,6 +944,9 @@ D
   - `--loop=<code>` flag
   - `--force` to rebuild
   - `--main` for adding an empty `main`, e.g. when running a file with tests
+- [dub](https://dub.pm/advanced_usage)
+  - `dub hello.d` is shorthand for `dub run --single hello.d`
+  - Regular nested block comment (not doc-comment) at top of file with `dub.sdl:` header
 
 Java
 - [jbang](https://www.jbang.dev/)
@@ -959,6 +962,14 @@ Java
   - Can run code blocks from markdown
   - `--code` flag to execute code on the command-line
   - Accepts scripts from `stdin`
+
+Kotlin
+- [kscript](https://github.com/holgerbrandl/kscript) (subset is now supported in Kotlin)
+  - Uses an annotation/attribute-like syntqx
+
+.NET
+- [dotnet-script](https://github.com/dotnet-script/dotnet-script)
+  - [`#` repl directives](https://github.com/dotnet-script/dotnet-script#repl-commands) can appear on lines following `#!`
 
 Haskell
 - [`runghc` / `runhaskell`](https://downloads.haskell.org/ghc/latest/docs/users_guide/runghc.html)
@@ -992,7 +1003,7 @@ Go
 - [`gorun`](https://github.com/erning/gorun/) attempts to bring that experience to a compiled language, go in this case
   - `gorun <file>` to build and run a file
   - Implicit garbage collection for build cache
-  - Project metadata is specified in HEREDOCs in comments
+  - Project metadata is specified in HEREDOCs in regular code comments
 
 Perl
 - [Re-interprets the `#!`](https://stackoverflow.com/questions/38059830/how-does-perl-avoid-shebang-loops)
@@ -1007,6 +1018,8 @@ Cross-language
   - Comment-directives give build commands
 - [nix-script](https://github.com/BrianHicks/nix-script)
   - Nix version of scriptisto, letting you use any Nix dependency
+
+See also [Single-file scripts that download their dependencies](https://dbohdan.com/scripts-with-dependencies)
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
