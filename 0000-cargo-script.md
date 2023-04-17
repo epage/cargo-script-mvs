@@ -472,8 +472,11 @@ Considerations for embedded manifest include
 fn main() {
 }
 ```
-
-This has the advantage of using existing, familiar syntax both to read and write.
+- This has the advantage of using existing, familiar syntax both to read and write.
+- Could use `syn` to parse to get the syntax correct
+- Might be a bit complicated to do edits (translating between location within
+  `toml_edit` spans to the location within `syn` spans)
+- Requires pulling in a full markdown parser to extract the manifest
 
 **Option 2: Macro**
 
