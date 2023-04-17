@@ -541,6 +541,48 @@ edition = "2018"
   - Potentially an API for accessing the document from within Rust
 - Unfamiliar, new syntax, unclear how it will work out for newer users
 
+**Option 5: Regular Comment**
+
+The manifest can be a regular comment with a header.  If we were to support
+multiple types of content (manifest, lockfile), we could either use multiple
+comments or HEREDOC.
+
+Open questions
+- Which syntax to use
+- Which comment types would be supported
+
+Simple header:
+```rust
+#!/usr/bin/env cargo-eval
+/* Cargo.toml:
+[package]
+edition = "2018"
+*/
+
+fn main() {
+}
+```
+
+HEREDOC:
+```rust
+#!/usr/bin/env cargo-eval
+/* Cargo.TOML >>>
+[package]
+edition = "2018"
+<<<
+*/
+
+fn main() {
+}
+```
+
+- Unfamiliar syntax
+- New style of structured comment for the ecosystem to support with potential
+  compatibility issues
+- Assuming it can't be parsed with `syn` and either we need to write a
+  sufficiently compatible comment parser or pull in a much larger rust parser
+  to extract and update comments.
+
 ## Lockfile
 
 [Lockfiles](https://doc.rust-lang.org/cargo/guide/cargo-toml-vs-cargo-lock.html)
