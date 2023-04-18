@@ -425,6 +425,7 @@ Guidelines used in design decision making include
   - Provides a higher quality of experience (doesn't feel like a hack or tacked on)
   - Transferable knowledge, whether experience, stackoverflow answers, etc
   - Easier unassisted migration between single-file and multi-file packages
+  - The more the workflows deviate, the higher the maintenance and support costs for the cargo team
   - Example implications:
     - Workflows, like running tests, should be the same as multi-file packages rather than being bifurcated
     - Manifest formats should be the same rather than using a specialized schema or data format
