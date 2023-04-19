@@ -417,6 +417,10 @@ prior art include a cache GC but that is also to clean up the temp files stored
 in other locations (our temp files are inside the `target/` dir and should be
 rarer).
 
+Syntax is not reserved for `build.rs`, `[lib]` support, proc-maros, or other
+functionality to be added later with the assumption that if these features are
+needed, a user should be using a multi-file package.
+
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
