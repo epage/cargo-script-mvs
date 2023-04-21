@@ -663,6 +663,17 @@ terms of rebuilds, because this would only happen in response to an edit.
   - Always re-calculate the lockfile
   - Error
 
+**Location 5: Minimal Versions**
+
+Instead of tracking a distinct lockfile, we can get most of the benefits with
+[`-Zminimal-versions`](JEP 330: Launch Single-File Source-Code Programs).
+
+- Consistent runs across machines without a lockfile
+- More likely to share versions across single-file packages, allowing more
+  reuse within the shared build cache
+- Deviates from how resolution typically happens, surprising people
+- Not all transitive dependencies have valid version requirements
+
 **Configuration 1: Hardcoded**
 
 Unless as a fallback due to a read-only location, the user has no control over
@@ -671,7 +682,8 @@ the lockfile location.
 **Configuration 2: Command-line flag**
 
 A `cargo-eval --save` or `cargo-eval --lock` to tell `cargo` to look for and
-edit it in the persistent location and otherwise we use a transient location.
+edit it in the persistent location and otherwise we fallback to a
+no-visible-lockfile solution.
 
 - Passing flags in a `#!` doesn't work cross-platform
 
@@ -687,8 +699,8 @@ comfortable making.  This means we would allow limited access to the
 **Configuration 4: Exitence Check**
 
 `cargo-eval` can check if the lockfile exists in the agreed-to location and use
-it / update it.  To initially opt-in, a user could place an empty lockfile in
-that location.
+it / update it and otherwise we fallback to a no-visible-lockfile solution.  To
+initially opt-in, a user could place an empty lockfile in that location
 
 ## `edition`
 
