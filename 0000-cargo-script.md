@@ -999,6 +999,7 @@ D
   - Regular nested block comment (not doc-comment) at top of file with `dub.sdl:` header
 
 Java
+- [JEP 330: Launch Single-File Source-Code Programs](https://openjdk.org/jeps/330)
 - [jbang](https://www.jbang.dev/)
   - `jbang init` w/ templates
   - `jbang edit` support, setting up a recommended editor w/ environment
