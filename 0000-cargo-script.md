@@ -7,12 +7,16 @@
 # Summary
 [summary]: #summary
 
-This adds support for so called single-file
+This *experimental RFC* adds unstable support for so called single-file
 packages in cargo.  Single-file packages are `.rs` files with an embedded
 manifest.  These will be accepted with just like `Cargo.toml` files with
 `--manifest-path`.  `cargo` will be modified to accept `cargo <file>.rs` as a
 short-cut to `cargo run --manifest-path <file>.rs`.  This allows placing
 `cargo` in a `#!` line for directly running these files.
+
+**Note:** [Unresolved questions](#unresolved-questions) will be worked out through the tracking issue and will be
+resolved before stablization.  This RFC represents the starting point of that
+experimentation.
 
 Example:
 ```rust
@@ -353,6 +357,12 @@ The lockfile for single-file packages will be placed in `CARGO_TARGET_DIR`.  In
 the future, when workspaces are supported, that will allow a user to have a
 persistent lockfile.
 
+**Reminder:** This is the starting point for experimentation, see also
+[Unresolved questions](#unresolved-questions) for discussion on
+- Embedded manifest format
+- Handling of lockfile
+- Handling of `package.edition`
+
 ## `cargo <file>.rs`
 
 `cargo` is intended for putting in the `#!` for single-file packages:
@@ -444,6 +454,300 @@ Guidelines used in design decision making include
       wrong file
     - Most likely, we'll want to muck with the errors returned by `toml_edit`
       so we render manifest errors based on the original source code which will require accurate span information.
+
+## Scope
+
+The `cargo-script` family of tools has a single command
+- Run `.rs` files with embedded manifests
+- Evaluate command-line arguments (`--expr`, `--loop`)
+
+This behavior (minus embedded manifests) mirrors what you might expect from a
+scripting environment, minus a REPL.  We could design this with the future possibility of a REPL.
+
+However
+- The needs of `.rs` files and REPL / CLI args are different, e.g. where they get their dependency definitions
+- A REPL is a lot larger of a problem, needing to pull in a lot of interactive behavior that is unrelated to `.rs` files
+- A REPL for Rust is a lot more nebulous of a future possibility, making it pre-mature to design for it in mind
+
+Therefore, this RFC proposes we limit the scope of the new command to `cargo run` for single-file rust packages.
+
+## Naming
+[naming]: #naming
+
+Considerations:
+- The name should tie it back to `cargo` to convey that relationship
+- The command that is run in a `#!` line should not require arguments (e.g. not
+  `#!/usr/bin/env cargo <something>`) because it will fail.  `env` treats the
+  rest of the line as the bin name, spaces included.  You need to use `env -S`
+  but that wasn't supported on macOS at least, last I tested.
+- Either don't have a name that looks like a cargo-plugin (e.g. not
+  `cargo-<something>`) to avoid confusion or make it work (by default, `cargo
+  something` translates to `cargo-something something` which would be ambiguous
+  of whether `something` is a script or subcommand)
+
+Candidates
+- `cargo-script`:
+  - Out of scope
+  - Verb preferred
+- `cargo-shell`:
+  - Out of scope
+  - Verb preferred
+- `cargo-run`:
+  - This would be shorthand for `cargo run --manifest-path <script>.rs`
+  - Might be confusing to have slightly different CLI between `cargo-run` and `cargo run`
+  - Could add a positional argument to `cargo run` but those are generally avoided in cargo commands
+- `cargo-eval`:
+  - Currently selected proposal
+  - Might convey REPL behavior
+  - How do we describe the difference between this and `cargo-run`?
+- `cargo-exec`
+  - How do we describe the difference between this and `cargo-run`?
+- `cargo`:
+  - Mirror Haskell's `cabal`
+  - Could run into confusion with subcommands but only
+    - the script is in the `PATH`
+    - the script doesn't have a file extension
+    - You are trying to run it as `cargo <script>` (at least on my machine, `#!` invocations canonicalize the file name)
+  - Might affect the quality of error messages for invalid subcommands unless we just assume
+  - Restricts access to more complex compiler settings unless a user switches
+    over to `cargo run` which might have different defaults (e.g. setting `RUST_BACKTRACE=1`)
+  - Forces us to have all commands treat these files equally (e.g.
+    `--<edition>` solution would need to be supported everywhere).
+  - Avoids the risk of overloading a `cargo-script`-like command to do
+    everything special for single-file packages, whether its running them,
+    expanding them into multi-file packages, etc.
+
+## First vs Third Party
+
+As mentioned, a reason for being first-party is to standardize the convention
+for this which also allows greater interop.
+
+A default implementation ensures people will use it.  For example, `clap`
+received an issue with a reproduction case using a `cargo-play` script that
+went unused because it just wasn't worth installing yet another, unknown tool.
+
+This also improves the overall experience as you do not need the third-party
+command to replicate support for every potential feature including:
+- `cargo test` and other built-in cargo commands
+- `cargo expand` and other third-party cargo commands
+- `rust-analyzer` and other editor/IDE integration
+
+While other third-party cargo commands might not immediately adopt single-file
+packages, first-party support for them will help encourage their adoption.
+
+This still leaves room for third-party implementations, either differentiating themselves or experimenting with
+- Alternative caching mechanisms for lower overhead
+- Support for implicit `main`, like doc-comment examples
+- Template support for implicit `main` for customizing `use`, `extern`, `#[feature]`, etc
+- Short-hand dependency syntax (e.g. `//# serde_json = "*"`)
+- Prioritizing other workflows, like runtime performance
+
+## File association on Windows
+
+We would add a non-default association to run the file.  We don't want it to be
+a default, by default, to avoid unintended harm and due to the likelihood
+someone is going to want to edit these files.
+
+## File extension
+
+Should these files use `.rs` or a custom file extension?
+
+Reasons for a unique file type
+- Semantics are different than a normal `.rs` file
+  - Except already a normal `.rs` file has context-dependent semantics (rest of
+    project, `Cargo.toml`, etc), so this doesn't seem too far off
+- Different file associations for Windows
+- Better detection by tools for the new semantics (particularly `rust-analyzer`)
+
+Downsides to a custom extension
+- Limited support by different tools (rust-analyzer, syntax highlighting, non-LSP editor actions) as adoptin rolls out
+
+At this time, we do not see enough reason to use a custom extension when facing the downsides to a slow roll out.
+
+While `rust-analyzer` needs to be able to distinguish regular `.rs` files from
+single-file packages to look up the relevant manifest to perform operations, we
+propose that be through checking the `#!` line (e.g.
+[how perl detects perl in the `#!`](https://stackoverflow.com/questions/38059830/how-does-perl-avoid-shebang-loops).
+While this adds boilerplate for Windows developers, this helps encourage
+cross-platform development.
+
+If we adopted a unique file extensions, some options include:
+- `.crs` (used by `cargo-script`)
+- `.ers` (used by `rust-script`)
+  - No connection back to cargo
+- `.rss`
+  - No connection back to cargo
+  - Confused with RSS
+- `.rsscript`
+  - No connection back to cargo
+  - Unwieldy
+- `.rspkg`
+  - No connection back to cargo but conveys its a single-file package
+
+# Prior art
+[prior-art]: #prior-art
+
+Rust, same space
+- [`cargo-script`](https://github.com/DanielKeep/cargo-script)
+  - Single-file (`.crs` extension) rust code
+    - Partial manifests in a `cargo` doc comment code fence or dependencies in a comment directive
+    - `run-cargo-script` for she-bangs and setting up file associations on Windows
+  - Performance: Shares a `CARGO_TARGET_DIR`, reusing dependency builds
+  - `--expr <expr>` for expressions as args (wraps in a block and prints blocks value as `{:?}` )
+     - `--dep` flags since directives don't work as easily
+  - `--loop <expr>` for a closure to run on each line
+  - `--test`, etc flags to make up for cargo not understanding thesefiles
+  - `--force` to rebuild` and `--clear-cache`
+  - Communicates through scrpts through some env variables
+- [`cargo-scripter`](https://crates.io/crates/cargo-scripter)
+  - See above with 8 more commits
+- [`cargo-eval`](https://crates.io/crates/cargo-eval)
+  - See above with a couple more commits
+- [`rust-script`](https://crates.io/crates/rust-script)
+  - See above
+  - Changed extension to `.ers` / `.rs`
+  - Single binary without subcommands in primary case for ease of running
+  - Implicit main support, including `async main` (different implementation than rustdoc)
+  - `--toolchain-version` flag
+- [`cargo-play`](https://crates.io/crates/cargo-play)
+  - Allows multiple-file scripts, first specified is the `main`
+  - Dependency syntax `//# serde_json = "*"`
+  - Otherwise, seems like it has a subset of `cargo-script`s functionality
+- [`cargo-wop`](https://crates.io/crates/cargo-wop)
+  - `cargo wop` is to single-file rust scripts as `cargo` is to multi-file rust projects
+  - Dependency syntax is a doc comment code fence
+
+Rust, related space
+- [Playground](https://play.rust-lang.org/)
+  - Includes top 100 crates
+- [Rust Explorer](https://users.rust-lang.org/t/rust-playground-with-the-top-10k-crates/75746)
+  - Uses a comment syntax for specifying dependencies
+- [`runner`](https://github.com/stevedonovan/runner/)
+  - Global `Cargo.toml` with dependencies added via `runner --add <dep>` and various commands  / args to interact with the shared crate
+  - Global, editable prelude / template
+  - `-e <expr>` support
+  - `-i <expr>` support for consuming and printing iterator values
+  - `-n <expr>` runs per line
+- [`evcxr`](https://github.com/google/evcxr)
+  - Umbrella project which includes a REPL and Jupyter kernel
+  - Requires opting in to not ending on panics
+  - Expressions starting with `:` are repl commands
+  - Limitations on using references
+- [`irust`](https://github.com/sigmaSd/IRust)
+  - Rust repl
+  - Expressions starting with `:` are repl commands
+  - Global, user-editable prelude crate
+- [papyrust](https://crates.io/crates/papyrust)
+  - Not single file; just gives fast caching for a cargo package
+
+D
+- [rdmd](https://dlang.org/rdmd.html)
+  - More like `rustc`, doesn't support package-manager dependencies?
+  - `--eval=<code>` flag
+  - `--loop=<code>` flag
+  - `--force` to rebuild
+  - `--main` for adding an empty `main`, e.g. when running a file with tests
+- [dub](https://dub.pm/advanced_usage)
+  - `dub hello.d` is shorthand for `dub run --single hello.d`
+  - Regular nested block comment (not doc-comment) at top of file with `dub.sdl:` header
+
+Java
+- [JEP 330: Launch Single-File Source-Code Programs](https://openjdk.org/jeps/330)
+- [jbang](https://www.jbang.dev/)
+  - `jbang init` w/ templates
+  - `jbang edit` support, setting up a recommended editor w/ environment
+  - Discourages `#!` and instead encourages looking like shell code with `///usr/bin/env jbang "$0" "$@" ; exit $?`
+  - Dependencies and compiler flags controlled via comment-directives, including
+    - `//DEPS info.picocli:picocli:4.5.0` (gradle-style locators)
+      - Can declare one dependency as the source of versions for other dependencies (bom-pom)
+    - `//COMPILE_OPTIONS <flags>`
+    - `//NATIVE_OPTIONS <flags>`
+    - `//RUNTIME_OPTIONS <flags>`
+  - Can run code blocks from markdown
+  - `--code` flag to execute code on the command-line
+  - Accepts scripts from `stdin`
+
+Kotlin
+- [kscript](https://github.com/holgerbrandl/kscript) (subset is now supported in Kotlin)
+  - Uses an annotation/attribute-like syntqx
+
+.NET
+- [dotnet-script](https://github.com/dotnet-script/dotnet-script)
+  - [`#` repl directives](https://github.com/dotnet-script/dotnet-script#repl-commands) can appear on lines following `#!`
+
+Haskell
+- [`runghc` / `runhaskell`](https://downloads.haskell.org/ghc/latest/docs/users_guide/runghc.html)
+  - Users can use the file stem (ie leave off the extension) when passing it in
+- [cabal's single-file haskel script](https://cabal.readthedocs.io/en/stable/getting-started.html#run-a-single-file-haskell-script)
+  - Command is just `cabal`, which could run into weird situations if a file has the same name as a subcommand
+  - Manifest is put in a multi-line comment that starts with `cabal:`
+  - Scripts are run with `--quiet`, regardless of which invocation is used
+  - Documented in their "Getting Started" and then documented further under `cabal run`.
+- [`stack script`](https://www.wespiser.com/posts/2020-02-02-Command-Line-Haskell.html)
+  - `stack` acts as a shortcut for use in `#!`
+  - Delegates resolver information but can be extended on the command-line
+  - Command-line flags may be specified in a multi-line comment starting with `stack script`
+
+Bash
+- `bash` to get an interactive way of entering code
+- `bash file` will run the code in `file,` searching in `PATH` if it isn't available locally
+- `./file` with `#!/usr/bin/env bash` to make standalone executables
+- `bash -c <expr>` to try out an idea right now
+- Common configuration with rc files, `--rcfile <path>`
+
+Python
+- `python` to get an interactive way of entering code
+- `python -i ...` to make other ways or running interactive
+- `python <file>` will run the file
+- `./file` with `#!/usr/bin/env python` to make standalone executables
+- `python -c <expr>` to try out an idea right now
+- Can run any file in a project (they can have their own "main") to do whitebox exploratory programming and not just blackblox
+
+Go
+- [`gorun`](https://github.com/erning/gorun/) attempts to bring that experience to a compiled language, go in this case
+  - `gorun <file>` to build and run a file
+  - Implicit garbage collection for build cache
+  - Project metadata is specified in HEREDOCs in regular code comments
+
+Perl
+- [Re-interprets the `#!`](https://stackoverflow.com/questions/38059830/how-does-perl-avoid-shebang-loops)
+
+Ruby
+- [`bundler/inline`](https://bundler.io/guides/bundler_in_a_single_file_ruby_script.html)
+  - Uses a code-block to define dependencies, making them available for use
+
+Cross-language
+- [`scriptisto`](https://github.com/igor-petruk/scriptisto)
+  - Supports any compiled language
+  - Comment-directives give build commands
+- [nix-script](https://github.com/BrianHicks/nix-script)
+  - Nix version of scriptisto, letting you use any Nix dependency
+
+See also [Single-file scripts that download their dependencies](https://dbohdan.com/scripts-with-dependencies)
+
+# Unresolved questions
+[unresolved-questions]: #unresolved-questions
+
+- Can we have both script stability and make it easy to be on the latest edition?
+- Could somehow "lock" to what is currently in the shared script cache to avoid
+  each script getting the latest version of a crate, causing churn in `target/`?
+- Since single-file packages cannot be inferred and require an explicit
+  `--manifest-path`, is there an alternative shorthand we should provide, like
+  a short-flag for `--manifest-path`?
+  - `p` is taken by `--package`
+  - `-m`, `-M`, and `-P` are available, but are the meanings clear enough?
+- Is there a way we could track what dependency versions have been built in the
+  `CARGO_TARGET_DIR` and give preference to resolve to them, if possible.
+- `.cargo/config.toml` and rustup-toolchain behavior
+  - These are "environment" config files
+  - Should `cargo` run like `cargo run` and use the current environment or
+    like `cargo install` and use a consistent environment from run-to-run of
+    the target?
+  - It would be relatively easy to get this with `.cargo/config.toml` but doing
+    so for rustup would require a new proxy that understands `cargo <file.rs>`
+    CLI.
+  - This would also reduce unnecessary rebuilds when running a personal script
+    (from `PATH`) in a project that has an unrelated `.cargo/config.toml`
 
 ## Embedded Manifest Format
 
@@ -808,299 +1112,6 @@ However, on Windows the best we can do is a proxy to redirect to `cargo`.
 
 Over the next 40 years, we'll have dozen editions which will bloat the directory, both in terms of the number of files (which can slow things down) and in terms of file size on Windows.
 
-## Scope
-
-The `cargo-script` family of tools has a single command
-- Run `.rs` files with embedded manifests
-- Evaluate command-line arguments (`--expr`, `--loop`)
-
-This behavior (minus embedded manifests) mirrors what you might expect from a
-scripting environment, minus a REPL.  We could design this with the future possibility of a REPL.
-
-However
-- The needs of `.rs` files and REPL / CLI args are different, e.g. where they get their dependency definitions
-- A REPL is a lot larger of a problem, needing to pull in a lot of interactive behavior that is unrelated to `.rs` files
-- A REPL for Rust is a lot more nebulous of a future possibility, making it pre-mature to design for it in mind
-
-Therefore, this RFC proposes we limit the scope of the new command to `cargo run` for single-file rust packages.
-
-## Naming
-[naming]: #naming
-
-Considerations:
-- The name should tie it back to `cargo` to convey that relationship
-- The command that is run in a `#!` line should not require arguments (e.g. not
-  `#!/usr/bin/env cargo <something>`) because it will fail.  `env` treats the
-  rest of the line as the bin name, spaces included.  You need to use `env -S`
-  but that wasn't supported on macOS at least, last I tested.
-- Either don't have a name that looks like a cargo-plugin (e.g. not
-  `cargo-<something>`) to avoid confusion or make it work (by default, `cargo
-  something` translates to `cargo-something something` which would be ambiguous
-  of whether `something` is a script or subcommand)
-
-Candidates
-- `cargo-script`:
-  - Out of scope
-  - Verb preferred
-- `cargo-shell`:
-  - Out of scope
-  - Verb preferred
-- `cargo-run`:
-  - This would be shorthand for `cargo run --manifest-path <script>.rs`
-  - Might be confusing to have slightly different CLI between `cargo-run` and `cargo run`
-  - Could add a positional argument to `cargo run` but those are generally avoided in cargo commands
-- `cargo-eval`:
-  - Currently selected proposal
-  - Might convey REPL behavior
-  - How do we describe the difference between this and `cargo-run`?
-- `cargo-exec`
-  - How do we describe the difference between this and `cargo-run`?
-- `cargo`:
-  - Mirror Haskell's `cabal`
-  - Could run into confusion with subcommands but only
-    - the script is in the `PATH`
-    - the script doesn't have a file extension
-    - You are trying to run it as `cargo <script>` (at least on my machine, `#!` invocations canonicalize the file name)
-  - Might affect the quality of error messages for invalid subcommands unless we just assume
-  - Restricts access to more complex compiler settings unless a user switches
-    over to `cargo run` which might have different defaults (e.g. setting `RUST_BACKTRACE=1`)
-  - Forces us to have all commands treat these files equally (e.g.
-    `--<edition>` solution would need to be supported everywhere).
-  - Avoids the risk of overloading a `cargo-script`-like command to do
-    everything special for single-file packages, whether its running them,
-    expanding them into multi-file packages, etc.
-
-## First vs Third Party
-
-As mentioned, a reason for being first-party is to standardize the convention
-for this which also allows greater interop.
-
-A default implementation ensures people will use it.  For example, `clap`
-received an issue with a reproduction case using a `cargo-play` script that
-went unused because it just wasn't worth installing yet another, unknown tool.
-
-This also improves the overall experience as you do not need the third-party
-command to replicate support for every potential feature including:
-- `cargo test` and other built-in cargo commands
-- `cargo expand` and other third-party cargo commands
-- `rust-analyzer` and other editor/IDE integration
-
-While other third-party cargo commands might not immediately adopt single-file
-packages, first-party support for them will help encourage their adoption.
-
-This still leaves room for third-party implementations, either differentiating themselves or experimenting with
-- Alternative caching mechanisms for lower overhead
-- Support for implicit `main`, like doc-comment examples
-- Template support for implicit `main` for customizing `use`, `extern`, `#[feature]`, etc
-- Short-hand dependency syntax (e.g. `//# serde_json = "*"`)
-- Prioritizing other workflows, like runtime performance
-
-## File association on Windows
-
-We would add a non-default association to run the file.  We don't want it to be
-a default, by default, to avoid unintended harm and due to the likelihood
-someone is going to want to edit these files.
-
-## File extension
-
-Should these files use `.rs` or a custom file extension?
-
-Reasons for a unique file type
-- Semantics are different than a normal `.rs` file
-  - Except already a normal `.rs` file has context-dependent semantics (rest of
-    project, `Cargo.toml`, etc), so this doesn't seem too far off
-- Different file associations for Windows
-- Better detection by tools for the new semantics (particularly `rust-analyzer`)
-
-Downsides to a custom extension
-- Limited support by different tools (rust-analyzer, syntax highlighting, non-LSP editor actions) as adoptin rolls out
-
-At this time, we do not see enough reason to use a custom extension when facing the downsides to a slow roll out.
-
-While `rust-analyzer` needs to be able to distinguish regular `.rs` files from
-single-file packages to look up the relevant manifest to perform operations, we
-propose that be through checking the `#!` line (e.g.
-[how perl detects perl in the `#!`](https://stackoverflow.com/questions/38059830/how-does-perl-avoid-shebang-loops).
-While this adds boilerplate for Windows developers, this helps encourage
-cross-platform development.
-
-If we adopted a unique file extensions, some options include:
-- `.crs` (used by `cargo-script`)
-- `.ers` (used by `rust-script`)
-  - No connection back to cargo
-- `.rss`
-  - No connection back to cargo
-  - Confused with RSS
-- `.rsscript`
-  - No connection back to cargo
-  - Unwieldy
-- `.rspkg`
-  - No connection back to cargo but conveys its a single-file package
-
-# Prior art
-[prior-art]: #prior-art
-
-Rust, same space
-- [`cargo-script`](https://github.com/DanielKeep/cargo-script)
-  - Single-file (`.crs` extension) rust code
-    - Partial manifests in a `cargo` doc comment code fence or dependencies in a comment directive
-    - `run-cargo-script` for she-bangs and setting up file associations on Windows
-  - Performance: Shares a `CARGO_TARGET_DIR`, reusing dependency builds
-  - `--expr <expr>` for expressions as args (wraps in a block and prints blocks value as `{:?}` )
-     - `--dep` flags since directives don't work as easily
-  - `--loop <expr>` for a closure to run on each line
-  - `--test`, etc flags to make up for cargo not understanding thesefiles
-  - `--force` to rebuild` and `--clear-cache`
-  - Communicates through scrpts through some env variables
-- [`cargo-scripter`](https://crates.io/crates/cargo-scripter)
-  - See above with 8 more commits
-- [`cargo-eval`](https://crates.io/crates/cargo-eval)
-  - See above with a couple more commits
-- [`rust-script`](https://crates.io/crates/rust-script)
-  - See above
-  - Changed extension to `.ers` / `.rs`
-  - Single binary without subcommands in primary case for ease of running
-  - Implicit main support, including `async main` (different implementation than rustdoc)
-  - `--toolchain-version` flag
-- [`cargo-play`](https://crates.io/crates/cargo-play)
-  - Allows multiple-file scripts, first specified is the `main`
-  - Dependency syntax `//# serde_json = "*"`
-  - Otherwise, seems like it has a subset of `cargo-script`s functionality
-- [`cargo-wop`](https://crates.io/crates/cargo-wop)
-  - `cargo wop` is to single-file rust scripts as `cargo` is to multi-file rust projects
-  - Dependency syntax is a doc comment code fence
-
-Rust, related space
-- [Playground](https://play.rust-lang.org/)
-  - Includes top 100 crates
-- [Rust Explorer](https://users.rust-lang.org/t/rust-playground-with-the-top-10k-crates/75746)
-  - Uses a comment syntax for specifying dependencies
-- [`runner`](https://github.com/stevedonovan/runner/)
-  - Global `Cargo.toml` with dependencies added via `runner --add <dep>` and various commands  / args to interact with the shared crate
-  - Global, editable prelude / template
-  - `-e <expr>` support
-  - `-i <expr>` support for consuming and printing iterator values
-  - `-n <expr>` runs per line
-- [`evcxr`](https://github.com/google/evcxr)
-  - Umbrella project which includes a REPL and Jupyter kernel
-  - Requires opting in to not ending on panics
-  - Expressions starting with `:` are repl commands
-  - Limitations on using references
-- [`irust`](https://github.com/sigmaSd/IRust)
-  - Rust repl
-  - Expressions starting with `:` are repl commands
-  - Global, user-editable prelude crate
-- [papyrust](https://crates.io/crates/papyrust)
-  - Not single file; just gives fast caching for a cargo package
-
-D
-- [rdmd](https://dlang.org/rdmd.html)
-  - More like `rustc`, doesn't support package-manager dependencies?
-  - `--eval=<code>` flag
-  - `--loop=<code>` flag
-  - `--force` to rebuild
-  - `--main` for adding an empty `main`, e.g. when running a file with tests
-- [dub](https://dub.pm/advanced_usage)
-  - `dub hello.d` is shorthand for `dub run --single hello.d`
-  - Regular nested block comment (not doc-comment) at top of file with `dub.sdl:` header
-
-Java
-- [JEP 330: Launch Single-File Source-Code Programs](https://openjdk.org/jeps/330)
-- [jbang](https://www.jbang.dev/)
-  - `jbang init` w/ templates
-  - `jbang edit` support, setting up a recommended editor w/ environment
-  - Discourages `#!` and instead encourages looking like shell code with `///usr/bin/env jbang "$0" "$@" ; exit $?`
-  - Dependencies and compiler flags controlled via comment-directives, including
-    - `//DEPS info.picocli:picocli:4.5.0` (gradle-style locators)
-      - Can declare one dependency as the source of versions for other dependencies (bom-pom)
-    - `//COMPILE_OPTIONS <flags>`
-    - `//NATIVE_OPTIONS <flags>`
-    - `//RUNTIME_OPTIONS <flags>`
-  - Can run code blocks from markdown
-  - `--code` flag to execute code on the command-line
-  - Accepts scripts from `stdin`
-
-Kotlin
-- [kscript](https://github.com/holgerbrandl/kscript) (subset is now supported in Kotlin)
-  - Uses an annotation/attribute-like syntqx
-
-.NET
-- [dotnet-script](https://github.com/dotnet-script/dotnet-script)
-  - [`#` repl directives](https://github.com/dotnet-script/dotnet-script#repl-commands) can appear on lines following `#!`
-
-Haskell
-- [`runghc` / `runhaskell`](https://downloads.haskell.org/ghc/latest/docs/users_guide/runghc.html)
-  - Users can use the file stem (ie leave off the extension) when passing it in
-- [cabal's single-file haskel script](https://cabal.readthedocs.io/en/stable/getting-started.html#run-a-single-file-haskell-script)
-  - Command is just `cabal`, which could run into weird situations if a file has the same name as a subcommand
-  - Manifest is put in a multi-line comment that starts with `cabal:`
-  - Scripts are run with `--quiet`, regardless of which invocation is used
-  - Documented in their "Getting Started" and then documented further under `cabal run`.
-- [`stack script`](https://www.wespiser.com/posts/2020-02-02-Command-Line-Haskell.html)
-  - `stack` acts as a shortcut for use in `#!`
-  - Delegates resolver information but can be extended on the command-line
-  - Command-line flags may be specified in a multi-line comment starting with `stack script`
-
-Bash
-- `bash` to get an interactive way of entering code
-- `bash file` will run the code in `file,` searching in `PATH` if it isn't available locally
-- `./file` with `#!/usr/bin/env bash` to make standalone executables
-- `bash -c <expr>` to try out an idea right now
-- Common configuration with rc files, `--rcfile <path>`
-
-Python
-- `python` to get an interactive way of entering code
-- `python -i ...` to make other ways or running interactive
-- `python <file>` will run the file
-- `./file` with `#!/usr/bin/env python` to make standalone executables
-- `python -c <expr>` to try out an idea right now
-- Can run any file in a project (they can have their own "main") to do whitebox exploratory programming and not just blackblox
-
-Go
-- [`gorun`](https://github.com/erning/gorun/) attempts to bring that experience to a compiled language, go in this case
-  - `gorun <file>` to build and run a file
-  - Implicit garbage collection for build cache
-  - Project metadata is specified in HEREDOCs in regular code comments
-
-Perl
-- [Re-interprets the `#!`](https://stackoverflow.com/questions/38059830/how-does-perl-avoid-shebang-loops)
-
-Ruby
-- [`bundler/inline`](https://bundler.io/guides/bundler_in_a_single_file_ruby_script.html)
-  - Uses a code-block to define dependencies, making them available for use
-
-Cross-language
-- [`scriptisto`](https://github.com/igor-petruk/scriptisto)
-  - Supports any compiled language
-  - Comment-directives give build commands
-- [nix-script](https://github.com/BrianHicks/nix-script)
-  - Nix version of scriptisto, letting you use any Nix dependency
-
-See also [Single-file scripts that download their dependencies](https://dbohdan.com/scripts-with-dependencies)
-
-# Unresolved questions
-[unresolved-questions]: #unresolved-questions
-
-- Can we have both script stability and make it easy to be on the latest edition?
-- Could somehow "lock" to what is currently in the shared script cache to avoid
-  each script getting the latest version of a crate, causing churn in `target/`?
-- Since single-file packages cannot be inferred and require an explicit
-  `--manifest-path`, is there an alternative shorthand we should provide, like
-  a short-flag for `--manifest-path`?
-  - `p` is taken by `--package`
-  - `-m`, `-M`, and `-P` are available, but are the meanings clear enough?
-- Is there a way we could track what dependency versions have been built in the
-  `CARGO_TARGET_DIR` and give preference to resolve to them, if possible.
-- `.cargo/config.toml` and rustup-toolchain behavior
-  - These are "environment" config files
-  - Should `cargo` run like `cargo run` and use the current environment or
-    like `cargo install` and use a consistent environment from run-to-run of
-    the target?
-  - It would be relatively easy to get this with `.cargo/config.toml` but doing
-    so for rustup would require a new proxy that understands `cargo <file.rs>`
-    CLI.
-  - This would also reduce unnecessary rebuilds when running a personal script
-    (from `PATH`) in a project that has an unrelated `.cargo/config.toml`
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
