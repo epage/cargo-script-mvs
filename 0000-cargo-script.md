@@ -7,11 +7,11 @@
 # Summary
 [summary]: #summary
 
-This *experimental RFC* adds unstable support for so called single-file
+This *experimental RFC* adds unstable support for so single-file
 packages in cargo.  Single-file packages are `.rs` files with an embedded
 manifest.  These will be accepted with just like `Cargo.toml` files with
 `--manifest-path`.  `cargo` will be modified to accept `cargo <file>.rs` as a
-short-cut to `cargo run --manifest-path <file>.rs`.  This allows placing
+shortcut to `cargo run --manifest-path <file>.rs`.  This allows placing
 `cargo` in a `#!` line for directly running these files.
 
 **Note:** [Unresolved questions](#unresolved-questions) will be worked out through the tracking issue and will be
@@ -82,7 +82,7 @@ Currently to prototype or try experiment with APIs or the language, you need to 
   - This is a lot of extra steps, increasing the friction to trying things out
   - This will fail if you create in a place that `cargo` will think it should be a workspace member
 
-By having a single-file project,
+By having a single-file package,
 - It is easier to setup and tear down these experiments, making it more likely to happen
 - All crates will be available
 - Local resources are available
@@ -295,6 +295,10 @@ automatically infers target names.
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
+**Reminder:** This serves as a starting point for experimentation and
+[Unresolved questions](#unresolved-questions) will be worked out through the
+tracking issue and will be
+
 ## Single-file packages
 
 In addition to today's multi-file packages (`Cargo.toml` file with other `.rs`
@@ -353,6 +357,8 @@ A single-file package is accepted by cargo commands as a `--manifest-path`
 - `cargo add` and `cargo remove` may not support editing embedded manifests initially
 - Path-dependencies may not refer to single-file packages at this time (they don't have a `lib` target anyways)
 
+Single-file packages will not be accepted as `path` or `git` dependencies.
+
 The lockfile for single-file packages will be placed in `CARGO_TARGET_DIR`.  In
 the future, when workspaces are supported, that will allow a user to have a
 persistent lockfile.
@@ -377,18 +383,18 @@ This command will have the same behavior as running
 ```console
 $ RUST_BACKTRACE=1 cargo run --quiet --manifest-path <file.rs> -- <args>`.
 ```
-- `--release` is not passed in because the primary use case is for exploratory
-  programming, so the emphasis will be on build-time performance, rather than
-  runtime performance
 - `RUST_BACKTRACE=1` will be enabled by default (allowing the caller to
-  override it) to help exploratory programming by making it quicker to debug
-  panics.
+  override it) to help exploratory programming by providing extra context on
+  panics by default.
 - `--quiet` is enabled by default so as to not mix cargo and user output.   On
   success, `cargo` will print nothing while error messages will be shown
   on failure.  In the future, we can explore showing progress bars if `stdout` is
   interactive but they will be cleared by the time cargo is done.  A single
   `--verbose` will restore normal output and subsequent `--verbose`s will act
-l  ike normal.
+  like normal.
+- `--release` is not passed in because the primary use case is for exploratory
+  programming, so the emphasis will be on build-time performance, rather than
+  runtime performance
 
 Most other flags and behavior will be similar to `cargo run`.
 
@@ -400,7 +406,8 @@ extract it and then requires a heavy dependency (a markdown parser) to get the
 code fence.
 
 The implicit content of the manifest will be unclear for users.  We can patch
-over this as best we can in documentation but the result won't be ideal.
+over this as best we can in documentation but the result won't be ideal.  A
+user can workaround this with `cargo metadata --manifest-path <file>.rs`.
 
 The `bin.name` assigned to the script included a hash as an implementation
 detail of the shared cache (for improving build times).  This makes
@@ -555,7 +562,7 @@ Should these files use `.rs` or a custom file extension?
 Reasons for a unique file type
 - Semantics are different than a normal `.rs` file
   - Except already a normal `.rs` file has context-dependent semantics (rest of
-    project, `Cargo.toml`, etc), so this doesn't seem too far off
+    source, `Cargo.toml`, etc), so this doesn't seem too far off
 - Different file associations for Windows
 - Better detection by tools for the new semantics (particularly `rust-analyzer`)
 
@@ -728,9 +735,6 @@ See also [Single-file scripts that download their dependencies](https://dbohdan.
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-- Can we have both script stability and make it easy to be on the latest edition?
-- Could somehow "lock" to what is currently in the shared script cache to avoid
-  each script getting the latest version of a crate, causing churn in `target/`?
 - Since single-file packages cannot be inferred and require an explicit
   `--manifest-path`, is there an alternative shorthand we should provide, like
   a short-flag for `--manifest-path`?
@@ -1096,11 +1100,6 @@ The problem is this does not work on all platforms that support `#!`
 
 **Option 6: `cargo-<edition>` variants**
 
-Instead of an extra flag, we embed it in the binary name like:
-```rust
-#!/usr/bin/env -S cargo-2018
-
-fn main() {
 }
 ```
 single-file packages will fail if used by `cargo-<edition>` and `package.edition` are both specified.
@@ -1132,19 +1131,6 @@ Ideally, this would be supported at the language level
 
 Behavior can be controlled through editions
 
-## A REPL
-
-See the [REPL exploration](https://github.com/epage/cargo-script-mvs/discussions/102)
-
-In terms of the CLI side of this, we could name this `cargo shell` where it
-drops you into an interactive shell within your current package, loading the
-existing dependencies (including dev).  This would then be a natural fit to also have a `--eval
-<expr>` flag.
-
-Ideally, this repl would also allow the equivalent of `python -i <file>`, not
-to run existing code but to make a specific file's API items available for use
-to do interactive whitebox testing of private code within a larger project.
-
 ## Workspace Support
 
 Allow scripts to be members of a workspace.
@@ -1155,7 +1141,7 @@ workspace root and the script don't agree on workspace membership.  To do this,
 we'd expand `package.workspace` to also be a `bool` to control whether a
 workspace lookup is disallowed or whether to auto-detect the workspace
 - For `Cargo.toml`, `package.workspace = true` is the default
-- For cargo-script, `package.workspace = false` is the default
+- For single-file packages, `package.workspace = false` is the default
 
 When a workspace is specified
 - Use its target directory
@@ -1175,3 +1161,16 @@ the lockfile and `target/` directory.
 We provide a workflow for turning a single-file package into a multi-file
 package, on `cargo-new` / `cargo-init`.  This would help smooth out the
 transition when their program has outgrown being in a single-file.
+
+## A REPL
+
+See the [REPL exploration](https://github.com/epage/cargo-script-mvs/discussions/102)
+
+In terms of the CLI side of this, we could name this `cargo shell` where it
+drops you into an interactive shell within your current package, loading the
+existing dependencies (including dev).  This would then be a natural fit to also have a `--eval
+<expr>` flag.
+
+Ideally, this repl would also allow the equivalent of `python -i <file>`, not
+to run existing code but to make a specific file's API items available for use
+to do interactive whitebox testing of private code within a larger project.
