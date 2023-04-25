@@ -7,15 +7,16 @@
 # Summary
 [summary]: #summary
 
-`cargo-eval` is a new program included with rust that can be used for
-single-file cargo packages which are `.rs` files with an embedded manifest.
-This can be placed in a `#!` line for directly running these files.  The
-manifest would be a module-level doc comment with a code fence with `cargo` as
-the type.
+This adds support for so called single-file
+packages in cargo.  Single-file packages are `.rs` files with an embedded
+manifest.  These will be accepted with just like `Cargo.toml` files with
+`--manifest-path`.  `cargo` will be modified to accept `cargo <file>.rs` as a
+short-cut to `cargo run --manifest-path <file>.rs`.  This allows placing
+`cargo` in a `#!` line for directly running these files.
 
 Example:
 ```rust
-#!/usr/bin/env cargo-eval
+#!/usr/bin/env cargo
 
 //! ```cargo
 //! [dependencies]
@@ -58,7 +59,7 @@ This similarly makes it easier to share code samples with coworkers or in books
 **Interoperability:**
 
 One angle to look at including something is if there is a single obvious
-solution.  While there isn't in the case for `cargo-eval`, there is enough of
+solution.  While there isn't in the case for single-file packages, there is enough of
 a subset of one. By standardizing that subset, we allow greater
 interoperability between solutions (e.g.
 [playground could gain support](https://users.rust-lang.org/t/call-for-contributors-to-the-rust-playground-for-upcoming-features/87110/14?u=epage)
@@ -98,7 +99,7 @@ into a directory and add it to the path.  Compare this to rust where
 
 To start a new [package][def-package] with Cargo, create a file named `hello_world.rs`:
 ```rust
-#!/usr/bin/env cargo-eval
+#!/usr/bin/env cargo
 
 fn main() {
     println!("Hello, world!");
@@ -125,7 +126,7 @@ requested packages.
 
 To depend on a library hosted on [crates.io], you modify `hello_world.rs`:
 ```rust
-#!/usr/bin/env cargo-eval
+#!/usr/bin/env cargo
 
 //! ```cargo
 //! [dependencies]
@@ -152,7 +153,7 @@ to add `[dependencies]` for each crate listed. Here's what your whole
 crates:
 
 ```rust
-#!/usr/bin/env cargo-eval
+#!/usr/bin/env cargo
 
 //! ```cargo
 //! [dependencies]
@@ -328,7 +329,7 @@ Inferred / defaulted manifest fields:
   later add support for including them in a workspace.
 - `package.edition = <current>` to avoid always having to add an embedded
   manifest at the cost of potentially breaking scripts on rust upgrades
-  - Warn when `edition` is unspecified.  While with `cargo-eval` this will be
+  - Warn when `edition` is unspecified.  While with single-file packages this will be
     silenced by default, users wanting stability are also likely to be using
     other commands, like `cargo test` and will see it.
 
@@ -352,43 +353,32 @@ The lockfile for single-file packages will be placed in `CARGO_TARGET_DIR`.  In
 the future, when workspaces are supported, that will allow a user to have a
 persistent lockfile.
 
-## `cargo-eval`
+## `cargo <file>.rs`
 
-`cargo-eval` is intended for putting in the `#!` for single-file packages:
+`cargo` is intended for putting in the `#!` for single-file packages:
 ```rust
-#!/usr/bin/env cargo-eval
+#!/usr/bin/env cargo
 
 fn main() {
     println!("Hello world");
 }
 ```
-This command will have the same behavior as running `cargo eval` but is
-distinct for wider compatibility (see [Naming](#naming)).
-
-To work with `#!`, `cargo-eval` will accept the single-file package and its
-arguments as positional arguments on the command-line.
-
-A user may substitute `-` for the single-file package to read it from the
-stdin.  `cargo-eval` will also implicitly read from `stdin` if it is not
-interactive:
+This command will have the same behavior as running
 ```console
-$ echo 'fn main() { println!("Hello world"); }' | cargo-eval
+$ RUST_BACKTRACE=1 cargo run --quiet --manifest-path <file.rs> -- <args>`.
 ```
-
-As the primary use case is for exploratory programming, the emphasis will be on
-build-time performance, rather than runtime performance
-- Debug builds will be the default
-- A new profile may be added (or existing profiles tweaked) to optimize build times
-
-Similarly, we will invert the default for `RUST_BACKTRACE`, enabling it by
-default, to provide more context to aid in debugging of panics.
-
-To not mix in cargo and user output, `cargo-eval` will run as if with `--quiet` by
-default, like with `cabal` in Haskell.  On success, `cargo-eval` will print
-nothing while error messages will be shown on failure.  In the future, we can
-explore showing progress bars if `stdout` is interactive but they will be
-cleared by the time cargo is done.  A single `--verbose` will restore normal
-output and subsequent `--verbose`s will act like normal.
+- `--release` is not passed in because the primary use case is for exploratory
+  programming, so the emphasis will be on build-time performance, rather than
+  runtime performance
+- `RUST_BACKTRACE=1` will be enabled by default (allowing the caller to
+  override it) to help exploratory programming by making it quicker to debug
+  panics.
+- `--quiet` is enabled by default so as to not mix cargo and user output.   On
+  success, `cargo` will print nothing while error messages will be shown
+  on failure.  In the future, we can explore showing progress bars if `stdout` is
+  interactive but they will be cleared by the time cargo is done.  A single
+  `--verbose` will restore normal output and subsequent `--verbose`s will act
+l  ike normal.
 
 Most other flags and behavior will be similar to `cargo run`.
 
@@ -467,7 +457,7 @@ Considerations for embedded manifest include
 **Option 1: Doc-comment**
 
 ```rust
-#!/usr/bin/env cargo-eval
+#!/usr/bin/env cargo
 
 //! ```cargo
 //! [package]
@@ -486,7 +476,7 @@ fn main() {
 **Option 2: Macro**
 
 ```rust
-#!/usr/bin/env cargo-eval
+#!/usr/bin/env cargo
 
 cargo! {
 [package]
@@ -503,7 +493,7 @@ fn main() {
 **Option 3: Attribute**
 
 ```rust
-#!/usr/bin/env cargo-eval
+#!/usr/bin/env cargo
 
 #![cargo(manifest = r#"
 [package]
@@ -529,7 +519,7 @@ for adding frontmatter to pages.
 What if we extended Rust's syntax to allow something similar?
 
 ```rust
-#!/usr/bin/env cargo-eval
+#!/usr/bin/env cargo
 
 fn main() {
 }
@@ -558,7 +548,7 @@ Open questions
 
 Simple header:
 ```rust
-#!/usr/bin/env cargo-eval
+#!/usr/bin/env cargo
 /* Cargo.toml:
 [package]
 edition = "2018"
@@ -570,7 +560,7 @@ fn main() {
 
 HEREDOC:
 ```rust
-#!/usr/bin/env cargo-eval
+#!/usr/bin/env cargo
 /* Cargo.TOML >>>
 [package]
 edition = "2018"
@@ -681,8 +671,8 @@ the lockfile location.
 
 **Configuration 2: Command-line flag**
 
-A `cargo-eval --save` or `cargo-eval --lock` to tell `cargo` to look for and
-edit it in the persistent location and otherwise we fallback to a
+`cargo generate-lockfile --manifest-path <file>.rs` would be special-cased to
+write the lockfile to the persistent location and otherwise we fallback to a
 no-visible-lockfile solution.
 
 - Passing flags in a `#!` doesn't work cross-platform
@@ -698,7 +688,7 @@ comfortable making.  This means we would allow limited access to the
 
 **Configuration 4: Exitence Check**
 
-`cargo-eval` can check if the lockfile exists in the agreed-to location and use
+`cargo` can check if the lockfile exists in the agreed-to location and use
 it / update it and otherwise we fallback to a no-visible-lockfile solution.  To
 initially opt-in, a user could place an empty lockfile in that location
 
@@ -718,7 +708,7 @@ Multi-file packages default the edition to `2015`, effectively requiring every
 project to override it for a modern rust experience.  People are likely to get
 this by running `cargo new` and could easily forget it otherwise.
 ```rust
-#!/usr/bin/env cargo-eval
+#!/usr/bin/env cargo
 
 //! ```cargo
 //! [package]
@@ -736,10 +726,10 @@ packages will be transient in nature and users will want the current `edition`.
 
 Longer-lived single-file packages are likely to be used with
 - other cargo commands, like `cargo test`, so warning when `edition` is defaulted can raise awareness
-- workspaces (future possibility), where `cargo-eval` will implicitly inherit `workspace.edition`
+- workspaces (future possibility), where single-file packages will implicitly inherit `workspace.edition`
 
 ```rust
-#!/usr/bin/env cargo-eval
+#!/usr/bin/env cargo
 
 fn main() {
 }
@@ -751,7 +741,7 @@ It is invalid for an embedded manifest to be missing `edition`, erroring when it
 
 The minimal single-package file would end up being:
 ```rust
-#!/usr/bin/env cargo-eval
+#!/usr/bin/env cargo
 
 //! ```cargo
 //! [package]
@@ -768,14 +758,14 @@ This dramatically increases the amount of boilerplate to get a single-file packa
 When the edition is unspecified, we edit the source to contain the latest edition.
 
 ```rust
-#!/usr/bin/env cargo-eval
+#!/usr/bin/env cargo
 
 fn main() {
 }
 ```
 is automatically converted to
 ```rust
-#!/usr/bin/env cargo-eval
+#!/usr/bin/env cargo
 
 //! ```cargo
 //! [package]
@@ -788,11 +778,11 @@ fn main() {
 
 This won't work for the `stdin` case.
 
-**Option 5: `cargo-eval --edition <YEAR>`**
+**Option 5: `cargo --edition <YEAR>`**
 
 Users can do:
 ```rust
-#!/usr/bin/env -S cargo-eval --edition 2018
+#!/usr/bin/env -S cargo --edition 2018
 
 fn main() {
 }
@@ -800,21 +790,21 @@ fn main() {
 
 The problem is this does not work on all platforms that support `#!`
 
-**Option 6: `carg-eval-<edition>` variants**
+**Option 6: `cargo-<edition>` variants**
 
 Instead of an extra flag, we embed it in the binary name like:
 ```rust
-#!/usr/bin/env -S cargo-eval-2018
+#!/usr/bin/env -S cargo-2018
 
 fn main() {
 }
 ```
-`cargo-eval` would error if both are specified.
+single-file packages will fail if used by `cargo-<edition>` and `package.edition` are both specified.
 
-On unix-like systems, these could be links to `cargo-eval` and `cargo-eval` can
+On unix-like systems, these could be links to `cargo` can
 parse `argv[0]` to extract the `edition`.
 
-However, on Windows the best we can do is a proxy to redirect to `cargo-eval`.
+However, on Windows the best we can do is a proxy to redirect to `cargo`.
 
 Over the next 40 years, we'll have dozen editions which will bloat the directory, both in terms of the number of files (which can slow things down) and in terms of file size on Windows.
 
@@ -839,7 +829,7 @@ Therefore, this RFC proposes we limit the scope of the new command to `cargo run
 
 Considerations:
 - The name should tie it back to `cargo` to convey that relationship
-- The command run in a `#!` line should not require arguments (e.g. not
+- The command that is run in a `#!` line should not require arguments (e.g. not
   `#!/usr/bin/env cargo <something>`) because it will fail.  `env` treats the
   rest of the line as the bin name, spaces included.  You need to use `env -S`
   but that wasn't supported on macOS at least, last I tested.
@@ -873,8 +863,12 @@ Candidates
     - You are trying to run it as `cargo <script>` (at least on my machine, `#!` invocations canonicalize the file name)
   - Might affect the quality of error messages for invalid subcommands unless we just assume
   - Restricts access to more complex compiler settings unless a user switches
-    over to `cargo run` which might have different defaults (e.g. `cargo-eval`
-    sets `RUST_BACKTRACE=1`)
+    over to `cargo run` which might have different defaults (e.g. setting `RUST_BACKTRACE=1`)
+  - Forces us to have all commands treat these files equally (e.g.
+    `--<edition>` solution would need to be supported everywhere).
+  - Avoids the risk of overloading a `cargo-script`-like command to do
+    everything special for single-file packages, whether its running them,
+    expanding them into multi-file packages, etc.
 
 ## First vs Third Party
 
@@ -1099,11 +1093,11 @@ See also [Single-file scripts that download their dependencies](https://dbohdan.
   `CARGO_TARGET_DIR` and give preference to resolve to them, if possible.
 - `.cargo/config.toml` and rustup-toolchain behavior
   - These are "environment" config files
-  - Should `cargo-eval` run like `cargo run` and use the current environment or
+  - Should `cargo` run like `cargo run` and use the current environment or
     like `cargo install` and use a consistent environment from run-to-run of
     the target?
   - It would be relatively easy to get this with `.cargo/config.toml` but doing
-    so for rustup would require a new proxy that understands `cargo-eval`s
+    so for rustup would require a new proxy that understands `cargo <file.rs>`
     CLI.
   - This would also reduce unnecessary rebuilds when running a personal script
     (from `PATH`) in a project that has an unrelated `.cargo/config.toml`
@@ -1111,13 +1105,18 @@ See also [Single-file scripts that download their dependencies](https://dbohdan.
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
+## Executing `<stdin>`
+
+We could extend this to allow accepting single-file packages from stdin, either
+explicitly with `-` or implicitly when `<stdin>` is not interactive.
+
 ## Implicit `main` support
 
 Like with doc-comment examples, we could support an implicit `main`.
 
 Ideally, this would be supported at the language level
-- Ensure a unified experience across the playground, `rustdoc`, and `cargo-eval`
-- `cargo-eval` can directly run files rather than writing to intermediate files
+- Ensure a unified experience across the playground, `rustdoc`, and `cargo`
+- `cargo` can directly run files rather than writing to intermediate files
   - This gets brittle with top-level statements like `extern` (more historical) or bin-level attributes
 
 Behavior can be controlled through editions
@@ -1162,7 +1161,6 @@ the lockfile and `target/` directory.
 
 ## Scaling up
 
-We provide a workflow for turning a single-file package into a multi-file package, whether
-on either `cargo-eval` or on `cargo-new` / `cargo-init`.  This would help
-smooth out the transition when their program has outgrown being in a
-single-file.
+We provide a workflow for turning a single-file package into a multi-file
+package, on `cargo-new` / `cargo-init`.  This would help smooth out the
+transition when their program has outgrown being in a single-file.
