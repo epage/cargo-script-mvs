@@ -297,7 +297,39 @@ automatically infers target names.
 
 **Reminder:** This serves as a starting point for experimentation and
 [Unresolved questions](#unresolved-questions) will be worked out through the
-tracking issue and will be
+tracking issues.
+
+Initial guidelines for evaluating decisions:
+- Single-file packages should have a first-class experience
+  - Provides a higher quality of experience (doesn't feel like a hack or tacked on)
+  - Transferable knowledge, whether experience, stackoverflow answers, etc
+  - Easier unassisted migration between single-file and multi-file packages
+  - The more the workflows deviate, the higher the maintenance and support costs for the cargo team
+  - Example implications:
+    - Workflows, like running tests, should be the same as multi-file packages rather than being bifurcated
+    - Manifest formats should be the same rather than using a specialized schema or data format
+- Friction for starting a new single-file package should be minimal
+  - Easy to remember, minimal syntax so people are more likely to use it in
+    one-off cases, experimental or prototyping use cases without tool assistance
+  - Example implications:
+    - Embedded manifest is optional which also means we can't require users specifying `edition`
+    - See also the implications for first-class experience
+    - Workspaces for single-file packages should not be auto-discovered as that
+      will break unless the workspaces also owns the single-file package which
+      will break workflows for just creating a file anywhere to try out an
+      idea.
+- Cargo/rustc diagnostics and messages (including `cargo metadata`) should be
+  in terms of single-file packages and not any temporary files
+  - Easier to understand the messages
+  - Provides a higher quality of experience (doesn't feel like a hack or tacked on)
+  - Example implications:
+    - Most likely, we'll need single-file packages to be understood directly by
+      rustc so cargo doesn't have to split out the `.rs` content into a temp
+      file that gets passed to cargo which will cause errors to point to the
+      wrong file
+    - Most likely, we'll want to muck with the errors returned by `toml_edit`
+      so we render manifest errors based on the original source code which will require accurate span information.
+
 
 ## Single-file packages
 
@@ -433,37 +465,6 @@ needed, a user should be using a multi-file package.
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
-
-Guidelines used in design decision making include
-- Single-file packages should have a first-class experience
-  - Provides a higher quality of experience (doesn't feel like a hack or tacked on)
-  - Transferable knowledge, whether experience, stackoverflow answers, etc
-  - Easier unassisted migration between single-file and multi-file packages
-  - The more the workflows deviate, the higher the maintenance and support costs for the cargo team
-  - Example implications:
-    - Workflows, like running tests, should be the same as multi-file packages rather than being bifurcated
-    - Manifest formats should be the same rather than using a specialized schema or data format
-- Friction for starting a new single-file package should be minimal
-  - Easy to remember, minimal syntax so people are more likely to use it in
-    one-off cases, experimental or prototyping use cases without tool assistance
-  - Example implications:
-    - Embedded manifest is optional which also means we can't require users specifying `edition`
-    - See also the implications for first-class experience
-    - Workspaces for single-file packages should not be auto-discovered as that
-      will break unless the workspaces also owns the single-file package which
-      will break workflows for just creating a file anywhere to try out an
-      idea.
-- Cargo/rustc diagnostics and messages (including `cargo metadata`) should be
-  in terms of single-file packages and not any temporary files
-  - Easier to understand the messages
-  - Provides a higher quality of experience (doesn't feel like a hack or tacked on)
-  - Example implications:
-    - Most likely, we'll need single-file packages to be understood directly by
-      rustc so cargo doesn't have to split out the `.rs` content into a temp
-      file that gets passed to cargo which will cause errors to point to the
-      wrong file
-    - Most likely, we'll want to muck with the errors returned by `toml_edit`
-      so we render manifest errors based on the original source code which will require accurate span information.
 
 ## Scope
 
