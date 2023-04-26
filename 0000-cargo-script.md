@@ -398,6 +398,9 @@ $ RUST_BACKTRACE=1 cargo run --quiet --manifest-path <file.rs> -- <args>`.
 
 Most other flags and behavior will be similar to `cargo run`.
 
+For precedence between `<file>.rs` and other parameters to `cargo`, see
+[Unresolved questions](#unresolved-questions).
+
 # Drawbacks
 [drawbacks]: #drawbacks
 
@@ -752,6 +755,22 @@ See also [Single-file scripts that download their dependencies](https://dbohdan.
     CLI.
   - This would also reduce unnecessary rebuilds when running a personal script
     (from `PATH`) in a project that has an unrelated `.cargo/config.toml`
+
+## `cargo <foo>` precedence
+
+The `cargo` command currently accepts
+- built-in commands
+- third-party commands
+- user aliases
+
+We'll now be adding in "single-file packages" and will need to determine what the precedence should be for these.
+
+For example, dlang's dub's precedence is:
+1. If `subcommand == "-"`, then its a single-file package read from stdin
+2. If `subcommand.ends_with(".d")`, then its a single-file package
+3. If `builtins.contains(subcommand)`, then its a subcommand
+4. if `subcommand.exists()`, then its a single-file package
+5. if `format!("{subcommand}.d").exists()`, then its a single-file package
 
 ## Embedded Manifest Format
 
