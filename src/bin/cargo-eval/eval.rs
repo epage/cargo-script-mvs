@@ -39,7 +39,7 @@ pub fn cli() -> clap::Command {
         .args([
             clap::Arg::new("clean")
                 .long("clean")
-                .help("Remove the script target director (unstable)")
+                .help("Remove the script target directory (unstable)")
                 .help_heading("Polyfill")
                 .action(clap::ArgAction::SetTrue)
                 .requires("script")
