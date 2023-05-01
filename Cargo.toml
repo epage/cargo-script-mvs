@@ -38,7 +38,7 @@ name = "cargo_eval"
 [dependencies]
 anyhow = "1.0.71"
 blake3 = "1.3.3"
-cargo = "0.69.1"
+cargo = "0.70.1"
 cargo-util = "0.2.3"
 clap = { version = "4.2.5", features = ["derive", "cargo"] }
 dirs-next = "2"
