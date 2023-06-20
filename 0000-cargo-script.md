@@ -1120,6 +1120,10 @@ The problem is this does not work on all platforms that support `#!`
 
 **Option 6: `cargo-<edition>` variants**
 
+```rust
+#!/usr/bin/env cargo-2018
+
+fn main() {
 }
 ```
 single-file packages will fail if used by `cargo-<edition>` and `package.edition` are both specified.
