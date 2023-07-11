@@ -998,17 +998,6 @@ terms of rebuilds, because this would only happen in response to an edit.
   - Always re-calculate the lockfile
   - Error
 
-**Location 5: Minimal Versions**
-
-Instead of tracking a distinct lockfile, we can get most of the benefits with
-[`-Zminimal-versions`](JEP 330: Launch Single-File Source-Code Programs).
-
-- Consistent runs across machines without a lockfile
-- More likely to share versions across single-file packages, allowing more
-  reuse within the shared build cache
-- Deviates from how resolution typically happens, surprising people
-- Not all transitive dependencies have valid version requirements
-
 **Configuration 1: Hardcoded**
 
 Unless as a fallback due to a read-only location, the user has no control over
@@ -1036,6 +1025,35 @@ comfortable making.  This means we would allow limited access to the
 `cargo` can check if the lockfile exists in the agreed-to location and use
 it / update it and otherwise we fallback to a no-visible-lockfile solution.  To
 initially opt-in, a user could place an empty lockfile in that location
+
+**Format 1: Cargo.lock**
+
+We can continue to use the existing `Cargo.lock`.
+
+At this time, just pulling in `clap` and `tokio` includes 51 `[[package]]`
+tables and takes up 419 lines.  This is fine for being an adjacent file but
+might be overwhelming for being embedded.
+We might want to consider ways of reducing redundancy.
+However, at best we can drop the file to 51, 102, or 153 lines (1-3 per package) which can still be overwhelming.
+
+**Format 2: Minimal Versions**
+
+Instead of tracking a distinct lockfile, we can get most of the benefits with
+[`-Zminimal-versions`](JEP 330: Launch Single-File Source-Code Programs).
+
+- Consistent runs across machines without a lockfile
+- More likely to share versions across single-file packages, allowing more
+  reuse within the shared build cache
+- Deviates from how resolution typically happens, surprising people
+- Not all transitive dependencies have valid version requirements
+
+**Format 3: Timestamp**
+
+If we record timestamps with package publishes, we could resolve to a specific
+timestamp for registry packages.
+
+See also
+[Cargo time machine (generate lock files based on old registry state) ](https://github.com/rust-lang/cargo/issues/5221)
 
 ## `edition`
 
