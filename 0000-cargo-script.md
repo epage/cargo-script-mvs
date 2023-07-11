@@ -573,7 +573,15 @@ Reasons for a unique file type
 Downsides to a custom extension
 - Limited support by different tools (rust-analyzer, syntax highlighting, non-LSP editor actions) as adoptin rolls out
 
-At this time, we do not see enough reason to use a custom extension when facing the downsides to a slow roll out.
+At this time, we do not see enough reason to use a custom extension when facing
+the downsides to a slow roll out.
+
+For Windows, a different file extension doesn't buy us all that much.
+We could have a "run" action associated with the extension when clicking on the
+file but the most likely action people would want is to edit, not run, and
+there might be concern over running code unexpectedly.
+More interesting is the commandline but we do not know of a accepted equivalent of `#!` for `cmd`.
+Generally, users just reference the interpreter (`python x.py`) or add a `x.bat` wrapper.
 
 While `rust-analyzer` needs to be able to distinguish regular `.rs` files from
 single-file packages to look up the relevant manifest to perform operations, we
