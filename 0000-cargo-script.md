@@ -94,6 +94,12 @@ into a directory and add it to the path.  Compare this to rust where
 - `cargo new` each of the "scripts" into individual directories
 - Create wrappers for each so you can access it in your path, passing `--manifest-path` to `cargo run`
 
+**Non-Goals:**
+
+With that said, this doesn't have to completely handle every use case for
+Collaboration, Interoperability, Prototuping, or One-off Utilities.
+Users can always scale up to normal packages with an explicit `Cargo.toml` file.
+
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
@@ -459,9 +465,12 @@ prior art include a cache GC but that is also to clean up the temp files stored
 in other locations (our temp files are inside the `target/` dir and should be
 rarer).
 
-Syntax is not reserved for `build.rs`, `[lib]` support, proc-maros, or other
-functionality to be added later with the assumption that if these features are
-needed, a user should be using a multi-file package.
+Syntax is not reserved for `build.rs`, `[lib]` support, proc-maros, embedding
+additional packages, or other functionality to be added later with the
+assumption that if these features are needed, a user should be using a
+multi-file package.
+As stated in the Motivation, this doesn't have to perfectly cover every use
+case that a `Cargo.toml` would.
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
