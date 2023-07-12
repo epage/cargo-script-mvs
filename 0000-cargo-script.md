@@ -1052,6 +1052,15 @@ Instead of tracking a distinct lockfile, we can get most of the benefits with
 If we record timestamps with package publishes, we could resolve to a specific
 timestamp for registry packages.
 
+Challenges:
+- Cargo preserves existing resolved versions when dealing with a new or modified
+  dependency or `cargo update -p`.
+- Non-registry dependenciess.
+
+If we want this to be near-lossless, it seems like we'd need
+- An edit log, rather than simple timestamps
+- Regular lockfile entries for non-registry dependencies
+
 See also
 [Cargo time machine (generate lock files based on old registry state) ](https://github.com/rust-lang/cargo/issues/5221)
 
