@@ -1039,7 +1039,7 @@ However, at best we can drop the file to 51, 102, or 153 lines (1-3 per package)
 **Format 2: Minimal Versions**
 
 Instead of tracking a distinct lockfile, we can get most of the benefits with
-[`-Zminimal-versions`](JEP 330: Launch Single-File Source-Code Programs).
+[`-Zminimal-versions`](https://github.com/rust-lang/cargo/issues/5657).
 
 - Consistent runs across machines without a lockfile
 - More likely to share versions across single-file packages, allowing more
