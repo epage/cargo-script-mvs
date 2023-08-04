@@ -1,22 +1,23 @@
 - Feature Name: cargo-script
 - Start Date: 2023-03-31
 - Pre-RFC: [internals](https://internals.rust-lang.org/t/pre-rfc-cargo-script-for-everyone/18639)
+- eRFC PR: [rust-lang/rfcs#3424](https://github.com/rust-lang/rfcs/pull/3424)
+  - Rust Issue: [rust-lang/cargo#12207](https://github.com/rust-lang/cargo/issues/12207)
 - RFC PR: [rust-lang/rfcs#0000](https://github.com/rust-lang/rfcs/pull/0000)
 - Rust Issue: [rust-lang/rust#0000](https://github.com/rust-lang/rust/issues/0000)
 
 # Summary
 [summary]: #summary
 
-This *experimental RFC* adds unstable support for so single-file
-packages in cargo.  Single-file packages are `.rs` files with an embedded
-manifest.  These will be accepted with just like `Cargo.toml` files with
+This RFC adds support for so called single-file
+bin packages in cargo.  Single-file bin packages are `.rs` files with an embedded
+manifest and a `main`.  These will be accepted with just like `Cargo.toml` files with
 `--manifest-path`.  `cargo` will be modified to accept `cargo <file>.rs` as a
 shortcut to `cargo run --manifest-path <file>.rs`.  This allows placing
 `cargo` in a `#!` line for directly running these files.
 
-**Note:** [Unresolved questions](#unresolved-questions) will be worked out through the tracking issue and will be
-resolved before stablization.  This RFC represents the starting point of that
-experimentation.
+Support for single-file lib packages, publishing, and workspace support is
+deferred out.
 
 Example:
 ```rust
@@ -46,7 +47,7 @@ $ ./prog --config file.toml
 Args { config: Some("file.toml") }
 ```
 
-See [`cargo-script-mvs`](https://crates.io/crates/cargo-script-mvs) for a demo.
+See [`-Zscript`](https://doc.rust-lang.org/nightly/cargo/reference/unstable.html#script) for a working implementation.
 
 # Motivation
 [motivation]: #motivation
@@ -402,12 +403,7 @@ Single-file packages will not be accepted as `path` or `git` dependencies.
 The lockfile for single-file packages will be placed in `CARGO_TARGET_DIR`.  In
 the future, when workspaces are supported, that will allow a user to have a
 persistent lockfile.
-
-**Reminder:** This is the starting point for experimentation, see also
-[Unresolved questions](#unresolved-questions) for discussion on
-- Embedded manifest format
-- Handling of lockfile
-- Handling of `package.edition`
+We may also allow customizing the non-workspace lockfile location in the [future](#future-possibilities).
 
 ## `cargo <file>.rs`
 
@@ -419,19 +415,9 @@ fn main() {
     println!("Hello world");
 }
 ```
-This command will have the same behavior as running
-```console
-$ RUST_BACKTRACE=1 cargo run --quiet --manifest-path <file.rs> -- <args>`.
-```
-- `RUST_BACKTRACE=1` will be enabled by default (allowing the caller to
-  override it) to help exploratory programming by providing extra context on
-  panics by default.
-- `--quiet` is enabled by default so as to not mix cargo and user output.   On
-  success, `cargo` will print nothing while error messages will be shown
-  on failure.  In the future, we can explore showing progress bars if `stdout` is
-  interactive but they will be cleared by the time cargo is done.  A single
-  `--verbose` will restore normal output and subsequent `--verbose`s will act
-  like normal.
+- Like with `cargo install`, `.cargo/config.toml` will be read based on the
+  scripts location rather than the current-dir.
+  - And like `cargo install`, the current-dir rustup-toolchain is respected
 - `--release` is not passed in because the primary use case is for exploratory
   programming, so the emphasis will be on build-time performance, rather than
   runtime performance
@@ -919,21 +905,14 @@ See also [Single-file scripts that download their dependencies](https://dbohdan.
 
 - Since single-file packages cannot be inferred and require an explicit
   `--manifest-path`, is there an alternative shorthand we should provide, like
-  a short-flag for `--manifest-path`?
+  a short-flag for `--manifest-path` or a shorter, more targeted alias?
+  - `--script` with `-s` or `-S` for a short flag, but is the meaning clear
+    enough?  What about in the context of multi-file packages taking advantage
+    of it?
   - `p` is taken by `--package`
   - `-m`, `-M`, and `-P` are available, but are the meanings clear enough?
 - Is there a way we could track what dependency versions have been built in the
   `CARGO_TARGET_DIR` and give preference to resolve to them, if possible.
-- `.cargo/config.toml` and rustup-toolchain behavior
-  - These are "environment" config files
-  - Should `cargo` run like `cargo run` and use the current environment or
-    like `cargo install` and use a consistent environment from run-to-run of
-    the target?
-  - It would be relatively easy to get this with `.cargo/config.toml` but doing
-    so for rustup would require a new proxy that understands `cargo <file.rs>`
-    CLI.
-  - This would also reduce unnecessary rebuilds when running a personal script
-    (from `PATH`) in a project that has an unrelated `.cargo/config.toml`
 
 ## `cargo <foo>` precedence
 
@@ -1084,7 +1063,82 @@ fn main() {
   sufficiently compatible comment parser or pull in a much larger rust parser
   to extract and update comments.
 
-## Lockfile
+# Future possibilities
+[future-possibilities]: #future-possibilities
+
+## Executing `<stdin>`
+
+We could extend this to allow accepting single-file packages from stdin, either
+explicitly with `-` or implicitly when `<stdin>` is not interactive.
+
+## Implicit `main` support
+
+Like with doc-comment examples, we could support an implicit `main`.
+
+Ideally, this would be supported at the language level
+- Ensure a unified experience across the playground, `rustdoc`, and `cargo`
+- `cargo` can directly run files rather than writing to intermediate files
+  - This gets brittle with top-level statements like `extern` (more historical) or bin-level attributes
+
+Behavior can be controlled through editions
+
+## `[lib]` support
+
+In an effort to allow low-overhead packages in a workspace, we may also allow `[lib]`s to be defined.
+
+A single-file package may only be a `[bin]` or a `[lib]` and not both.
+
+We would support depending on these, publishing them, etc.
+
+We could add support for this in the future by
+- Using `syn` to check if a top-level `main` function exists (this is mutually exclusive with implicit `main`)
+- Check the manifest for an empty `[lib]` table
+
+## Workspace Support
+
+Allow scripts to be members of a workspace.
+
+The assumption is that this will be opt-in, rather than implicit, so you can
+easily drop one of these scripts anywhere without it failing because the
+workspace root and the script don't agree on workspace membership.  To do this,
+we'd expand `package.workspace` to also be a `bool` to control whether a
+workspace lookup is disallowed or whether to auto-detect the workspace
+- For `Cargo.toml`, `package.workspace = true` is the default
+- For single-file packages, `package.workspace = false` is the default
+
+When a workspace is specified
+- Use its target directory
+- Use its lock file
+- Be treated as any other workspace member for `cargo <cmd> --workspace`
+- Check what `workspace.package` fields exist and automatically apply them over default manifest fields
+- Explicitly require `workspace.dependencies` to be inherited
+  - I would be tempted to auto-inherit them but then `cargo rm`s gc will remove them because there is no way to know they are in use
+- Apply all `profile` and `patch` settings
+
+This could serve as an alternative to
+[`cargo xtask`](https://github.com/matklad/cargo-xtask) with scripts sharing
+the lockfile and `target/` directory.
+
+## Scaling up
+
+We provide a workflow for turning a single-file package into a multi-file
+package, on `cargo-new` / `cargo-init`.  This would help smooth out the
+transition when their program has outgrown being in a single-file.
+
+## A REPL
+
+See the [REPL exploration](https://github.com/epage/cargo-script-mvs/discussions/102)
+
+In terms of the CLI side of this, we could name this `cargo shell` where it
+drops you into an interactive shell within your current package, loading the
+existing dependencies (including dev).  This would then be a natural fit to also have a `--eval
+<expr>` flag.
+
+Ideally, this repl would also allow the equivalent of `python -i <file>`, not
+to run existing code but to make a specific file's API items available for use
+to do interactive whitebox testing of private code within a larger project.
+
+## Embedded or adjacent Lockfile
 
 [Lockfiles](https://doc.rust-lang.org/cargo/guide/cargo-toml-vs-cargo-lock.html)
 record the exact version used for every possible dependency to ensure
@@ -1114,6 +1168,12 @@ Considerations
   This limits the scope of the conversation and allows an alternative to
   whatever is decided here.
 - Read-only single-file packages (e.g. running `/usr/bin/package.rs` without root privileges)
+
+> Disposition: Deferred.  We feel this can be handled later, either by checking
+> for a manifest field, like `workspace.lock`, or by checking if the lock
+> content exists (wherever it is stored).  The main constraint is that if we
+> want to embed the lock content in the `.rs` file, we leave syntactic room for
+> it.
 
 **Location 1: In `CARGO_TARGET_DIR`**
 
@@ -1225,65 +1285,3 @@ If we want this to be near-lossless, it seems like we'd need
 See also
 [Cargo time machine (generate lock files based on old registry state) ](https://github.com/rust-lang/cargo/issues/5221)
 
-# Future possibilities
-[future-possibilities]: #future-possibilities
-
-## Executing `<stdin>`
-
-We could extend this to allow accepting single-file packages from stdin, either
-explicitly with `-` or implicitly when `<stdin>` is not interactive.
-
-## Implicit `main` support
-
-Like with doc-comment examples, we could support an implicit `main`.
-
-Ideally, this would be supported at the language level
-- Ensure a unified experience across the playground, `rustdoc`, and `cargo`
-- `cargo` can directly run files rather than writing to intermediate files
-  - This gets brittle with top-level statements like `extern` (more historical) or bin-level attributes
-
-Behavior can be controlled through editions
-
-## Workspace Support
-
-Allow scripts to be members of a workspace.
-
-The assumption is that this will be opt-in, rather than implicit, so you can
-easily drop one of these scripts anywhere without it failing because the
-workspace root and the script don't agree on workspace membership.  To do this,
-we'd expand `package.workspace` to also be a `bool` to control whether a
-workspace lookup is disallowed or whether to auto-detect the workspace
-- For `Cargo.toml`, `package.workspace = true` is the default
-- For single-file packages, `package.workspace = false` is the default
-
-When a workspace is specified
-- Use its target directory
-- Use its lock file
-- Be treated as any other workspace member for `cargo <cmd> --workspace`
-- Check what `workspace.package` fields exist and automatically apply them over default manifest fields
-- Explicitly require `workspace.dependencies` to be inherited
-  - I would be tempted to auto-inherit them but then `cargo rm`s gc will remove them because there is no way to know they are in use
-- Apply all `profile` and `patch` settings
-
-This could serve as an alternative to
-[`cargo xtask`](https://github.com/matklad/cargo-xtask) with scripts sharing
-the lockfile and `target/` directory.
-
-## Scaling up
-
-We provide a workflow for turning a single-file package into a multi-file
-package, on `cargo-new` / `cargo-init`.  This would help smooth out the
-transition when their program has outgrown being in a single-file.
-
-## A REPL
-
-See the [REPL exploration](https://github.com/epage/cargo-script-mvs/discussions/102)
-
-In terms of the CLI side of this, we could name this `cargo shell` where it
-drops you into an interactive shell within your current package, loading the
-existing dependencies (including dev).  This would then be a natural fit to also have a `--eval
-<expr>` flag.
-
-Ideally, this repl would also allow the equivalent of `python -i <file>`, not
-to run existing code but to make a specific file's API items available for use
-to do interactive whitebox testing of private code within a larger project.
