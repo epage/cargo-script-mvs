@@ -378,6 +378,8 @@ Inferred / defaulted manifest fields:
   - Warn when `edition` is unspecified.  While with single-file packages this will be
     silenced by default, users wanting stability are also likely to be using
     other commands, like `cargo test` and will see it.
+  - Based on feedback, we might add `cargo-<edition>-edition` proxies to put in `#!` as a shorthand
+  - Based on feedback, we can switch to "edition is required as of <future> edition"
 
 Disallowed manifest fields:
 - `[workspace]`, `[lib]`, `[[bin]]`, `[[example]]`, `[[test]]`, `[[bench]]`
@@ -626,7 +628,7 @@ Rust, same space
   - `--loop <expr>` for a closure to run on each line
   - `--test`, etc flags to make up for cargo not understanding thesefiles
   - `--force` to rebuild` and `--clear-cache`
-  - Communicates through scrpts through some env variables
+  - Communicates through scripts through some env variables
 - [`cargo-scripter`](https://crates.io/crates/cargo-scripter)
   - See above with 8 more commits
 - [`cargo-eval`](https://crates.io/crates/cargo-eval)
@@ -1071,34 +1073,26 @@ See also
 A policy on this needs to balance
 - Matching the expectation of a reproducible Rust experience
 - Users wanting the latest experience, in general
-- Boilerplate runs counter to experimentation and prototyping
+- Boilerplate runs counter to experimentation and prototyping, particularly in the "no dependencies" case
+  - A `cargo new --script` (flag TBD) could help reduce writing of boilerplate.
 - There might not be a backing file if we read from `stdin`
 
-**Option 1: Fixed Default**
-
-Multi-file packages default the edition to `2015`, effectively requiring every
-project to override it for a modern rust experience.  People are likely to get
-this by running `cargo new` and could easily forget it otherwise.
-```rust
-#!/usr/bin/env cargo
-
-//! ```cargo
-//! [package]
-//! edition = "2018"
-//! ```
-
-fn main() {
-}
-```
-
-**Option 2: Latest as Default**
+**Solution: Latest as Default**
 
 Default to the `edition` for the current `cargo` version, assuming single-file
 packages will be transient in nature and users will want the current `edition`.
+However, we will produce a warning when no `edition` is specified, nudging
+people towards reproducible code.
 
-Longer-lived single-file packages are likely to be used with
-- other cargo commands, like `cargo test`, so warning when `edition` is defaulted can raise awareness
-- workspaces (future possibility), where single-file packages will implicitly inherit `workspace.edition`
+This keeps the boilerplate low for
+- Bug reproduction (ideally these are short-lived and usually you can tell from the timeframe)
+- Throwaway scripts
+
+The warning will help longer term scripts and "warning free" educational
+material be reproducible.
+
+Longer term, workspace support (future possibility) will also help drive people
+to setting the edition, especially if we do implicit inheritance.
 
 ```rust
 #!/usr/bin/env cargo
@@ -1107,7 +1101,9 @@ fn main() {
 }
 ```
 
-**Option 3: No default**
+Note: this is a reversible decision on an edition boundary
+
+**Alternative 1: No default but error**
 
 It is invalid for an embedded manifest to be missing `edition`, erroring when it is missing.
 
@@ -1125,7 +1121,70 @@ fn main() {
 ```
 This dramatically increases the amount of boilerplate to get a single-file package going.
 
-**Option 4: Auto-insert latest**
+Note: this is a reversible decision on an edition boundary
+
+**Alternative 2: `cargo-<edition>-edition` variants**
+
+```rust
+#!/usr/bin/env cargo-2018-edition
+
+fn main() {
+}
+```
+single-file packages will fail if used by `cargo-<edition>` and `package.edition` are both specified.
+This still needs a decision for when neither is specified.
+
+On unix-like systems, these could be links to `cargo` can
+parse `argv[0]` to extract the `edition`.
+
+However, on Windows the best we can do is a proxy to redirect to `cargo`.
+
+Over the next 40 years, we'll have dozen editions which will bloat the
+directory, both in terms of the number of files (which can slow things down)
+and in terms of file size on Windows.
+
+This might also make shell completion of `cargo` noiser than what we have today with third-part plugins.
+
+> This is deferred and we'll re-evvaluate based on feedback
+
+**Alternative 3: `cargo --edition <YEAR>`**
+
+Users can do:
+```rust
+#!/usr/bin/env -S cargo --edition 2018
+
+fn main() {
+}
+```
+
+> Disposition: We decided against this because the `-S` flag is not portable
+> across different `/usr/bin/env` implementations
+
+**Alternative 4: Fixed Default**
+
+Multi-file packages default the edition to `2015`, effectively requiring every
+project to override it for a modern rust experience.
+We could set it the edition the feature is stablized in (2021?) but that is just kicking the can down the road.
+People are likely to get this by running `cargo new` and could easily forget it
+otherwise.
+```rust
+#!/usr/bin/env cargo
+
+//! ```cargo
+//! [package]
+//! edition = "2018"
+//! ```
+
+fn main() {
+}
+```
+
+Note: this is a one-way door, we can't change the decision in the future based on new information.
+
+> Disposition: We decided against this because this effectively always requires
+> the edition to be set
+
+**Alternative 5: Auto-insert latest**
 
 When the edition is unspecified, we edit the source to contain the latest edition.
 
@@ -1150,35 +1209,8 @@ fn main() {
 
 This won't work for the `stdin` case.
 
-**Option 5: `cargo --edition <YEAR>`**
-
-Users can do:
-```rust
-#!/usr/bin/env -S cargo --edition 2018
-
-fn main() {
-}
-```
-
-The problem is this does not work on all platforms that support `#!`
-
-**Option 6: `cargo-<edition>` variants**
-
-```rust
-#!/usr/bin/env cargo-2018
-
-fn main() {
-}
-```
-single-file packages will fail if used by `cargo-<edition>` and `package.edition` are both specified.
-
-On unix-like systems, these could be links to `cargo` can
-parse `argv[0]` to extract the `edition`.
-
-However, on Windows the best we can do is a proxy to redirect to `cargo`.
-
-Over the next 40 years, we'll have dozen editions which will bloat the directory, both in terms of the number of files (which can slow things down) and in terms of file size on Windows.
-
+> Disposition: We decided against this because implicitly modifying user code,
+> especially while being edited, is a poor experience.
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
