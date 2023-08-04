@@ -424,8 +424,18 @@ fn main() {
 
 Most other flags and behavior will be similar to `cargo run`.
 
-For precedence between `<file>.rs` and other parameters to `cargo`, see
-[Unresolved questions](#unresolved-questions).
+The precedence for `cargo foo` will change from:
+1. built-in commands
+2. user aliases
+3. third-party commands
+to:
+1. built-in command xor manifest
+2. user aliases
+3. third-party commands
+
+To allow the xor, we enforce that
+- manifests must be passed in as `Cargo.toml`, `foo.rs`, or have a `/` in them
+- no built-in command may look like an accepted manifest
 
 # Drawbacks
 [drawbacks]: #drawbacks
@@ -913,22 +923,6 @@ See also [Single-file scripts that download their dependencies](https://dbohdan.
   - `-m`, `-M`, and `-P` are available, but are the meanings clear enough?
 - Is there a way we could track what dependency versions have been built in the
   `CARGO_TARGET_DIR` and give preference to resolve to them, if possible.
-
-## `cargo <foo>` precedence
-
-The `cargo` command currently accepts
-- built-in commands
-- third-party commands
-- user aliases
-
-We'll now be adding in "single-file packages" and will need to determine what the precedence should be for these.
-
-For example, dlang's dub's precedence is:
-1. If `subcommand == "-"`, then its a single-file package read from stdin
-2. If `subcommand.ends_with(".d")`, then its a single-file package
-3. If `builtins.contains(subcommand)`, then its a subcommand
-4. if `subcommand.exists()`, then its a single-file package
-5. if `format!("{subcommand}.d").exists()`, then its a single-file package
 
 ## Embedded Manifest Format
 
