@@ -651,6 +651,10 @@ fn main() {
 
 Note: this is a reversible decision on an edition boundary
 
+> Disposition: Selected as it offers low overhead while supporting our effort
+> with editions.  If we learn this doesn't work as well as we want, this would
+> allow us to switch to requiring the edition in the future.
+
 **Alternative 1: No default but error**
 
 It is invalid for an embedded manifest to be missing `edition`, erroring when it is missing.
@@ -669,7 +673,16 @@ fn main() {
 ```
 This dramatically increases the amount of boilerplate to get a single-file package going.
 
+This also runs counter to how we are handling most manifest changes, where we
+require less information, rather than more.
+
 Note: this is a reversible decision on an edition boundary
+
+> Disposition: Rejected *for now* due to the extra boilerplate
+> for throwaway scripts and not following out pattern of how we are handling
+> manifests differently than `Cargo.toml`.  We might switch to this in the
+> future if we find that the "latest as default" doesn't work as well as we
+> expected.0
 
 **Alternative 2: `cargo-<edition>-edition` variants**
 
@@ -693,7 +706,7 @@ and in terms of file size on Windows.
 
 This might also make shell completion of `cargo` noiser than what we have today with third-part plugins.
 
-> This is deferred and we'll re-evvaluate based on feedback
+> Dispition: Deferred and we'll re-evvaluate based on feedback
 
 **Alternative 3: `cargo --edition <YEAR>`**
 
@@ -705,8 +718,8 @@ fn main() {
 }
 ```
 
-> Disposition: We decided against this because the `-S` flag is not portable
-> across different `/usr/bin/env` implementations
+> Disposition: Rejected because the `-S` flag is not portable across different
+> `/usr/bin/env` implementations
 
 **Alternative 4: Fixed Default**
 
@@ -729,8 +742,8 @@ fn main() {
 
 Note: this is a one-way door, we can't change the decision in the future based on new information.
 
-> Disposition: We decided against this because this effectively always requires
-> the edition to be set
+> Disposition: Rejected because this effectively always requires the edition to
+> be set
 
 **Alternative 5: Auto-insert latest**
 
@@ -757,8 +770,8 @@ fn main() {
 
 This won't work for the `stdin` case.
 
-> Disposition: We decided against this because implicitly modifying user code,
-> especially while being edited, is a poor experience.
+> Disposition: Rejected because implicitly modifying user code, especially
+> while being edited, is a poor experience.
 
 # Prior art
 [prior-art]: #prior-art
