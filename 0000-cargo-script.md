@@ -428,6 +428,7 @@ The precedence for `cargo foo` will change from:
 1. built-in commands
 2. user aliases
 3. third-party commands
+
 to:
 1. built-in command xor manifest
 2. user aliases
