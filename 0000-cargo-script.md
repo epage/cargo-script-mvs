@@ -614,6 +614,152 @@ If we adopted a unique file extensions, some options include:
 - `.rspkg`
   - No connection back to cargo but conveys its a single-file package
 
+## `edition`
+
+[The `edition` field controls what variant of cargo and the Rust language to use to interpret everything.](https://doc.rust-lang.org/edition-guide/introduction.html)
+
+A policy on this needs to balance
+- Matching the expectation of a reproducible Rust experience
+- Users wanting the latest experience, in general
+- Boilerplate runs counter to experimentation and prototyping, particularly in the "no dependencies" case
+  - A `cargo new --script` (flag TBD) could help reduce writing of boilerplate.
+- There might not be a backing file if we read from `stdin`
+
+**Solution: Latest as Default**
+
+Default to the `edition` for the current `cargo` version, assuming single-file
+packages will be transient in nature and users will want the current `edition`.
+However, we will produce a warning when no `edition` is specified, nudging
+people towards reproducible code.
+
+This keeps the boilerplate low for
+- Bug reproduction (ideally these are short-lived and usually you can tell from the timeframe)
+- Throwaway scripts
+
+The warning will help longer term scripts and "warning free" educational
+material be reproducible.
+
+Longer term, workspace support (future possibility) will also help drive people
+to setting the edition, especially if we do implicit inheritance.
+
+```rust
+#!/usr/bin/env cargo
+
+fn main() {
+}
+```
+
+Note: this is a reversible decision on an edition boundary
+
+**Alternative 1: No default but error**
+
+It is invalid for an embedded manifest to be missing `edition`, erroring when it is missing.
+
+The minimal single-package file would end up being:
+```rust
+#!/usr/bin/env cargo
+
+//! ```cargo
+//! [package]
+//! edition = "2018"
+//! ```
+
+fn main() {
+}
+```
+This dramatically increases the amount of boilerplate to get a single-file package going.
+
+Note: this is a reversible decision on an edition boundary
+
+**Alternative 2: `cargo-<edition>-edition` variants**
+
+```rust
+#!/usr/bin/env cargo-2018-edition
+
+fn main() {
+}
+```
+single-file packages will fail if used by `cargo-<edition>` and `package.edition` are both specified.
+This still needs a decision for when neither is specified.
+
+On unix-like systems, these could be links to `cargo` can
+parse `argv[0]` to extract the `edition`.
+
+However, on Windows the best we can do is a proxy to redirect to `cargo`.
+
+Over the next 40 years, we'll have dozen editions which will bloat the
+directory, both in terms of the number of files (which can slow things down)
+and in terms of file size on Windows.
+
+This might also make shell completion of `cargo` noiser than what we have today with third-part plugins.
+
+> This is deferred and we'll re-evvaluate based on feedback
+
+**Alternative 3: `cargo --edition <YEAR>`**
+
+Users can do:
+```rust
+#!/usr/bin/env -S cargo --edition 2018
+
+fn main() {
+}
+```
+
+> Disposition: We decided against this because the `-S` flag is not portable
+> across different `/usr/bin/env` implementations
+
+**Alternative 4: Fixed Default**
+
+Multi-file packages default the edition to `2015`, effectively requiring every
+project to override it for a modern rust experience.
+We could set it the edition the feature is stablized in (2021?) but that is just kicking the can down the road.
+People are likely to get this by running `cargo new` and could easily forget it
+otherwise.
+```rust
+#!/usr/bin/env cargo
+
+//! ```cargo
+//! [package]
+//! edition = "2018"
+//! ```
+
+fn main() {
+}
+```
+
+Note: this is a one-way door, we can't change the decision in the future based on new information.
+
+> Disposition: We decided against this because this effectively always requires
+> the edition to be set
+
+**Alternative 5: Auto-insert latest**
+
+When the edition is unspecified, we edit the source to contain the latest edition.
+
+```rust
+#!/usr/bin/env cargo
+
+fn main() {
+}
+```
+is automatically converted to
+```rust
+#!/usr/bin/env cargo
+
+//! ```cargo
+//! [package]
+//! edition = "2018"
+//! ```
+
+fn main() {
+}
+```
+
+This won't work for the `stdin` case.
+
+> Disposition: We decided against this because implicitly modifying user code,
+> especially while being edited, is a poor experience.
+
 # Prior art
 [prior-art]: #prior-art
 
@@ -1065,152 +1211,6 @@ If we want this to be near-lossless, it seems like we'd need
 
 See also
 [Cargo time machine (generate lock files based on old registry state) ](https://github.com/rust-lang/cargo/issues/5221)
-
-## `edition`
-
-[The `edition` field controls what variant of cargo and the Rust language to use to interpret everything.](https://doc.rust-lang.org/edition-guide/introduction.html)
-
-A policy on this needs to balance
-- Matching the expectation of a reproducible Rust experience
-- Users wanting the latest experience, in general
-- Boilerplate runs counter to experimentation and prototyping, particularly in the "no dependencies" case
-  - A `cargo new --script` (flag TBD) could help reduce writing of boilerplate.
-- There might not be a backing file if we read from `stdin`
-
-**Solution: Latest as Default**
-
-Default to the `edition` for the current `cargo` version, assuming single-file
-packages will be transient in nature and users will want the current `edition`.
-However, we will produce a warning when no `edition` is specified, nudging
-people towards reproducible code.
-
-This keeps the boilerplate low for
-- Bug reproduction (ideally these are short-lived and usually you can tell from the timeframe)
-- Throwaway scripts
-
-The warning will help longer term scripts and "warning free" educational
-material be reproducible.
-
-Longer term, workspace support (future possibility) will also help drive people
-to setting the edition, especially if we do implicit inheritance.
-
-```rust
-#!/usr/bin/env cargo
-
-fn main() {
-}
-```
-
-Note: this is a reversible decision on an edition boundary
-
-**Alternative 1: No default but error**
-
-It is invalid for an embedded manifest to be missing `edition`, erroring when it is missing.
-
-The minimal single-package file would end up being:
-```rust
-#!/usr/bin/env cargo
-
-//! ```cargo
-//! [package]
-//! edition = "2018"
-//! ```
-
-fn main() {
-}
-```
-This dramatically increases the amount of boilerplate to get a single-file package going.
-
-Note: this is a reversible decision on an edition boundary
-
-**Alternative 2: `cargo-<edition>-edition` variants**
-
-```rust
-#!/usr/bin/env cargo-2018-edition
-
-fn main() {
-}
-```
-single-file packages will fail if used by `cargo-<edition>` and `package.edition` are both specified.
-This still needs a decision for when neither is specified.
-
-On unix-like systems, these could be links to `cargo` can
-parse `argv[0]` to extract the `edition`.
-
-However, on Windows the best we can do is a proxy to redirect to `cargo`.
-
-Over the next 40 years, we'll have dozen editions which will bloat the
-directory, both in terms of the number of files (which can slow things down)
-and in terms of file size on Windows.
-
-This might also make shell completion of `cargo` noiser than what we have today with third-part plugins.
-
-> This is deferred and we'll re-evvaluate based on feedback
-
-**Alternative 3: `cargo --edition <YEAR>`**
-
-Users can do:
-```rust
-#!/usr/bin/env -S cargo --edition 2018
-
-fn main() {
-}
-```
-
-> Disposition: We decided against this because the `-S` flag is not portable
-> across different `/usr/bin/env` implementations
-
-**Alternative 4: Fixed Default**
-
-Multi-file packages default the edition to `2015`, effectively requiring every
-project to override it for a modern rust experience.
-We could set it the edition the feature is stablized in (2021?) but that is just kicking the can down the road.
-People are likely to get this by running `cargo new` and could easily forget it
-otherwise.
-```rust
-#!/usr/bin/env cargo
-
-//! ```cargo
-//! [package]
-//! edition = "2018"
-//! ```
-
-fn main() {
-}
-```
-
-Note: this is a one-way door, we can't change the decision in the future based on new information.
-
-> Disposition: We decided against this because this effectively always requires
-> the edition to be set
-
-**Alternative 5: Auto-insert latest**
-
-When the edition is unspecified, we edit the source to contain the latest edition.
-
-```rust
-#!/usr/bin/env cargo
-
-fn main() {
-}
-```
-is automatically converted to
-```rust
-#!/usr/bin/env cargo
-
-//! ```cargo
-//! [package]
-//! edition = "2018"
-//! ```
-
-fn main() {
-}
-```
-
-This won't work for the `stdin` case.
-
-> Disposition: We decided against this because implicitly modifying user code,
-> especially while being edited, is a poor experience.
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
