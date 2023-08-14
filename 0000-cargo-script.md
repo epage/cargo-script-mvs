@@ -522,11 +522,9 @@ Candidates
 - `cargo-exec`
   - How do we describe the difference between this and `cargo-run`?
 - `cargo`:
-  - Mirror Haskell's `cabal`
-  - Could run into confusion with subcommands but only
-    - the script is in the `PATH`
-    - the script doesn't have a file extension
-    - You are trying to run it as `cargo <script>` (at least on my machine, `#!` invocations canonicalize the file name)
+  - Mirror Haskell's `cabal` or D's `dub`
+  - Could run into confusion with subcommands but only if you are trying to run it as `cargo <script>` without any path separators (like a `./` prefix)
+    - With a `#!`, at minimum a local path must be passed in (e.g. `./` prefix) or the matching `PATH` element must be prefixed
   - Might affect the quality of error messages for invalid subcommands unless we just assume
   - Restricts access to more complex compiler settings unless a user switches
     over to `cargo run` which might have different defaults (e.g. setting `RUST_BACKTRACE=1`)
