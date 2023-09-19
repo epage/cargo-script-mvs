@@ -20,13 +20,12 @@ Support for single-file lib packages, publishing, and workspace support is
 deferred out.
 
 Example:
-```rust
+````rust
 #!/usr/bin/env cargo
-
-//! ```cargo
-//! [dependencies]
-//! clap = { version = "4.2", features = ["derive"] }
-//! ```
+```cargo
+[dependencies]
+clap = { version = "4.2", features = ["derive"] }
+```
 
 use clap::Parser;
 
@@ -41,7 +40,7 @@ fn main() {
     let args = Args::parse();
     println!("{:?}", args);
 }
-```
+````
 ```console
 $ ./prog --config file.toml
 Args { config: Some("file.toml") }
@@ -136,22 +135,22 @@ requested packages.
 #### Adding a dependency
 
 To depend on a library hosted on [crates.io], you modify `hello_world.rs`:
-```rust
+````rust
 #!/usr/bin/env cargo
-
-//! ```cargo
-//! [dependencies]
-//! time = "0.1.12"
-//! ```
+```cargo
+[dependencies]
+time = "0.1.12"
+```
 
 fn main() {
     println!("Hello, world!");
 }
-```
+````
 
-The `cargo` section is called a [***manifest***][def-manifest], and it contains all of the
-metadata that Cargo needs to compile your package. This is written in the
-[TOML] format (pronounced /tɑməl/).
+The data inside the `cargo` frontmatter is called a
+[***manifest***][def-manifest], and it contains all of the metadata that Cargo
+needs to compile your package.
+This is written in the [TOML] format (pronounced /tɑməl/).
 
 `time = "0.1.12"` is the name of the [crate][def-crate] and a [SemVer] version
 requirement. The [specifying
@@ -163,20 +162,19 @@ to add `[dependencies]` for each crate listed. Here's what your whole
 `hello_world.rs` file would look like with dependencies on the `time` and `regex`
 crates:
 
-```rust
+````rust
 #!/usr/bin/env cargo
-
-//! ```cargo
-//! [dependencies]
-//! time = "0.1.12"
-//! regex = "0.1.41"
-//! ```
+```cargo
+[dependencies]
+time = "0.1.12"
+regex = "0.1.41"
+```
 
 fn main() {
     let re = Regex::new(r"^\d{4}-\d{2}-\d{2}$").unwrap();
     println!("Did our date match? {}", re.is_match("2014-01-01"));
 }
-```
+````
 
 You can then re-run this and Cargo will fetch the new dependencies and all of their dependencies.  You can see this by passing in `--verbose`:
 ```console
@@ -346,28 +344,8 @@ embedded manifest.  There is no required distinguishment for a single-file
 `.rs` package from any other `.rs` file.
 
 A single-file package may contain an embedded manifest.  An embedded manifest
-is stored using `TOML` in a markdown code-fence with `cargo` at the start of the
-infostring inside a target-level doc-comment.  It is an error to have multiple
-`cargo` code fences in the target-level doc-comment.  We can relax this later,
-either merging the code fences or ignoring later code fences.
-
-Supported forms of embedded manifest are:
-``````rust
-//! ```cargo
-//! ```
-``````
-``````rust
-/*!
-```cargo
-```
-*/
-``````
-``````rust
-/*!
- * ```cargo
- * ```
- */
-``````
+is stored using `TOML` in rust "frontmatter", a markdown code-fence with `cargo`
+at the start of the infostring at the top of the file.
 
 Inferred / defaulted manifest fields:
 - `package.name = <slugified file stem>`
@@ -609,6 +587,255 @@ If we adopted a unique file extensions, some options include:
 - `.rspkg`
   - No connection back to cargo but conveys its a single-file package
 
+## Embedded Manifest Format
+
+Considerations for embedded manifest include
+- How obvious it is for new users when they see it
+- How easy it is for newer users to remember it and type it out
+- How machine editable it is for `cargo add` and friends
+- Needs to be valid Rust code based on the earlier stated design guidelines
+- Lockfiles might also need to reuse how we attach metadata to the file
+
+**Solution: Code-fence Frontmatter**
+
+This is a variation of **Alternative 6** but using code fences which was a source of inspiration
+````rust
+#!/usr/bin/env cargo
+```cargo
+[dependencies]
+foo = "1.2.3"
+```
+
+fn main() {}
+````
+- The first line post-shebang-stripping is 3+ backticks, then capture all content until a matching pair of backticks on a dedicated line.  This would be captured into a `#![frontmatter(info = "cargo", content = "..."]`.  `frontmatter` attribute is reserved for crate roots.  The 3+ with matching pair is a "just in case" a TOML multi-line string has that syntax in it)
+- Future evolution: Allow `cargo` being the default `info` string
+- Future evolution: Allow any `info` string with cargo checking for `content.starts_with(["cargo", "cargo,"])`
+- Future evolution: Allow `frontmatter` attribute on any module
+
+Benefits
+- Visually/syntactically lightweight
+- Has parallels to ideas outside of Rust, building on external knowledge that might exist
+- Easy for cargo to parse and modify
+- Can be leveraged by buck2, meson, etc in the future
+
+Downsides
+- People are likely to make mistakes in wrapping these in code fences when posting issues to github (this post originally had the code fence wrong)
+
+**Alternative 1: Doc-comment**
+
+```rust
+#!/usr/bin/env cargo
+
+//! ```cargo
+//! [package]
+//! edition = "2018"
+//! ```
+
+fn main() {
+}
+```
+
+Benefits
+- Familiar syntax both to read and write.
+- Could use `syn` to parse to get the syntax correct
+- When discussing with a Rust author, it was pointed out many times people preface code with a comment specifying the dependencies ([example](https://github.com/dtolnay/prettyplease#example)), this is the same idea but reusable by cargo
+- When discussing on forums, people expressed how they had never seen the syntax but instantly were able to understand it
+
+Downsides:
+- Might be a bit complicated to do edits (translating between location within
+  `toml_edit` spans to the location within `syn` spans)
+- Either we expose `syn`s lesser parse errors or we make errors worse by skipping the manifest on error
+- Requires pulling in a full markdown parser to extract the manifest
+  - Incorrectly formatted markdown would lead to a missing manifest and confusing error messages at best or silent incorrect behavior at worse
+- When discussing with a a Rust crash course teacher, it was felt their students would have a hard time learning to write these manifests from scratch
+  - Having the explain the overloading of concepts to new users
+  - Unpredictable location (both the doc comment and the cargo code block within it)
+  - Visual clutter (where clutter is overwhelming already in Rust)
+
+**Alternative 2: Macro**
+
+```rust
+#!/usr/bin/env cargo
+
+cargo! {
+[package]
+edition = "2018"
+}
+
+fn main() {
+}
+```
+Downsides
+- The `cargo` macro would need to come from somewhere (`std`?) which means it is taking on `cargo`-specific knowledge
+- A lot of tools/IDEs have problems in dealing with macros
+- Free-form rust code makes it harder for cargo to make edits to the manifest
+
+**Alternative 3: Attribute**
+
+```rust
+#!/usr/bin/env cargo
+
+#![cargo(manifest = r#"
+[package]
+edition = "2018"
+"#)]
+
+fn main() {
+}
+```
+- `cargo` could register this attribute or `rustc` could get a generic `metadata` attribute
+- As an alternative, `manifest` could a less stringly-typed format but that
+  makes it harder for cargo to parse and edit, makes it harder for users to
+  migrate between single and multi-file packages, and makes it harder to transfer
+  knowledge and experience
+
+Benefits
+
+Downsides
+- I posit that this syntax is more intimidating to read and write for newer users
+- Users are more forgiving of not understanding the details for structure data in an unstructured format (doc comments / comments) but something that looks meaningful, they will want to understand it all requiring dealing with all of the concepts
+ - The attribute approach requires explaining multiple "advanced" topics: One teacher doesn't get to teaching any attributes until the second level in his crash course series and two teachers have found it difficult to teach people raw strings
+- Attributes look "scary" (and they are in some respects for the hidden stuff they do)
+
+
+**Alternative 4: Presentation Streams**
+
+YAML allows several documents to be concatenated together variant
+[presentation streams](https://yaml.org/spec/1.2.2/#323-presentation-stream)
+which might seem familiar as this is frequently used in static-site generators
+for adding frontmatter to pages.
+What if we extended Rust's syntax to allow something similar?
+
+```rust
+#!/usr/bin/env cargo
+
+fn main() {
+}
+
+---Cargo.toml
+[package]
+edition = "2018"
+```
+
+Benefits
+- Easiest for machine parsing and editing
+- Flexible for other content
+
+Downsides
+- Flexible for manifest, lockfile, and other content
+- Being new syntax, there would be a lot of details to work out, including
+  - How to delineate and label documents
+  - How to allow escaping to avoid conflicts with content in a documents
+  - Potentially an API for accessing the document from within Rust
+- Unfamiliar, new syntax, unclear how it will work out for newer users
+
+**Alternative 5: Regular Comment**
+
+The manifest can be a regular comment with a header.  If we were to support
+multiple types of content (manifest, lockfile), we could either use multiple
+comments or HEREDOC.
+
+Open questions
+- Which syntax to use
+- Which comment types would be supported
+
+Simple header:
+```rust
+#!/usr/bin/env cargo
+/* Cargo.toml:
+[package]
+edition = "2018"
+*/
+
+fn main() {
+}
+```
+
+HEREDOC:
+```rust
+#!/usr/bin/env cargo
+/* Cargo.TOML >>>
+[package]
+edition = "2018"
+<<<
+*/
+
+fn main() {
+}
+```
+
+Benefits
+
+Downsides
+- Unfamiliar syntax
+- New style of structured comment for the ecosystem to support with potential
+  compatibility issues
+  - This would require a new edition
+- Assuming it can't be parsed with `syn` and either we need to write a
+  sufficiently compatible comment parser or pull in a much larger rust parser
+  to extract and update comments.
+  - Like with doc comments, this should map to an attribute and then we'd just start the MVP with that attribute
+
+**Alternative 6: Static-site generator frontmatter**
+
+This is a subset/specialization of YAML presentation streams that mirrors people's experience with static site generators:
+```rust
+#!/usr/bin/env cargo
+---
+[package]
+edition = "2018"
+---
+
+fn main() {
+}
+```
+- The first line post-shebang-stripping is 3+ dashes, then capture all content until a matching pair of dashes on a dedicated line.  This would be captured into a `#![frontmatter = ""]`.  `frontmatter` attribute is reserved for crate roots.  The 3+ with matching pair is a "just in case" a TOML multi-line string has that syntax in it)
+- Future evolution: Allow a markdown-like infostring on the frontmatter opening dashes to declare the format with `cargo` being the default
+- Future evolution: Allow `frontmatter` attribute on any module
+
+Benefits
+- Visually/syntactically lightweight
+- Has parallels to ideas outside of Rust, building on external knowledge that might exist
+- Easy for cargo to parse and modify
+- Can be leveraged by buck2, meson, etc in the future
+
+Downsides
+- Too general that people might abuse it
+- We've extended the frontmatter syntax, undoing some of the "familiarity" benefit
+- People are used to YAML going in frontmatter (though some systems allow other syntaxes)
+- Doesn't feel very rusty
+
+**Alternative 7: Extended Shebang**
+
+This is a variation of **Solution** but trying to tie it closer to the shebang syntax in mentally and in the hopes that we can get buy-in from other languages.
+````rust
+#!/usr/bin/env cargo
+# ```cargo
+# [dependencies]
+# foo = "1.2.3"
+# ```
+
+fn main() {}
+````
+- The first line post-shebang-stripping is a hash plus 3+ backticks, then capture all content until a matching pair of backticks on a dedicated line.  This would be captured into a `#![frontmatter(info = "cargo", content = "..."]`.  `frontmatter` attribute is reserved for crate roots.  The 3+ with matching pair is a "just in case" a TOML multi-line string has that syntax in it).  Each content line must be indented to at least the same level as the first backtick.
+- Future evolution: Allow `cargo` being the default `info` string
+- Future evolution: Allow any `info` string with cargo checking for `content.starts_with(["cargo", "cargo,"])`
+- Future evolution: Allow `frontmatter` attribute on any module
+
+Benefits
+- Visually connected to the shebang
+- Has parallels to ideas outside of Rust, building on external knowledge that might exist
+- Easy for cargo to parse and modify
+- Can be leveraged by buck2, meson, etc in the future
+- Maybe we can get others on board with this syntax
+
+Downsides
+- More syntactically heavy than **Solution**
+  - Visually
+  - More work to type it out / copy-paste
+  - More to get wrong
+
 ## `edition`
 
 [The `edition` field controls what variant of cargo and the Rust language to use to interpret everything.](https://doc.rust-lang.org/edition-guide/introduction.html)
@@ -655,17 +882,16 @@ Note: this is a reversible decision on an edition boundary
 It is invalid for an embedded manifest to be missing `edition`, erroring when it is missing.
 
 The minimal single-package file would end up being:
-```rust
+````rust
 #!/usr/bin/env cargo
-
-//! ```cargo
-//! [package]
-//! edition = "2018"
-//! ```
+```cargo
+[package]
+edition = "2018"
+```
 
 fn main() {
 }
-```
+````
 This dramatically increases the amount of boilerplate to get a single-file package going.
 
 This also runs counter to how we are handling most manifest changes, where we
@@ -723,17 +949,15 @@ project to override it for a modern rust experience.
 We could set it the edition the feature is stablized in (2021?) but that is just kicking the can down the road.
 People are likely to get this by running `cargo new` and could easily forget it
 otherwise.
-```rust
-#!/usr/bin/env cargo
-
-//! ```cargo
-//! [package]
-//! edition = "2018"
-//! ```
+````rust
+```cargo
+[package]
+edition = "2018"
+```
 
 fn main() {
 }
-```
+````
 
 Note: this is a one-way door, we can't change the decision in the future based on new information.
 
@@ -751,17 +975,16 @@ fn main() {
 }
 ```
 is automatically converted to
-```rust
+````rust
 #!/usr/bin/env cargo
-
-//! ```cargo
-//! [package]
-//! edition = "2018"
-//! ```
+```cargo
+[package]
+edition = "2018"
+```
 
 fn main() {
 }
-```
+````
 
 This won't work for the `stdin` case.
 
@@ -922,139 +1145,6 @@ See also [Single-file scripts that download their dependencies](https://dbohdan.
   - `-m`, `-M`, and `-P` are available, but are the meanings clear enough?
 - Is there a way we could track what dependency versions have been built in the
   `CARGO_TARGET_DIR` and give preference to resolve to them, if possible.
-
-## Embedded Manifest Format
-
-Considerations for embedded manifest include
-- How obvious it is for new users when they see it
-- How easy it is for newer users to remember it and type it out
-- How machine editable it is for `cargo add` and friends
-- Needs to be valid Rust code based on the earlier stated design guidelines
-- Lockfiles might also need to reuse how we attach metadata to the file
-
-**Option 1: Doc-comment**
-
-```rust
-#!/usr/bin/env cargo
-
-//! ```cargo
-//! [package]
-//! edition = "2018"
-//! ```
-
-fn main() {
-}
-```
-- This has the advantage of using existing, familiar syntax both to read and write.
-- Could use `syn` to parse to get the syntax correct
-- Might be a bit complicated to do edits (translating between location within
-  `toml_edit` spans to the location within `syn` spans)
-- Requires pulling in a full markdown parser to extract the manifest
-
-**Option 2: Macro**
-
-```rust
-#!/usr/bin/env cargo
-
-cargo! {
-[package]
-edition = "2018"
-}
-
-fn main() {
-}
-```
-- The `cargo` macro would need to come from somewhere (`std`?) which means it is taking on `cargo`-specific knowledge
-- A lot of tools/IDEs have problems in dealing with macros
-- Free-form rust code makes it harder for cargo to make edits to the manifest
-
-**Option 3: Attribute**
-
-```rust
-#!/usr/bin/env cargo
-
-#![cargo(manifest = r#"
-[package]
-edition = "2018"
-"#)]
-
-fn main() {
-}
-```
-- `cargo` could register this attribute or `rustc` could get a generic `metadata` attribute
-- I posit that this syntax is more intimidating to read and write for newer users
-- As an alternative, `manifest` could a less stringly-typed format but that
-  makes it harder for cargo to parse and edit, makes it harder for users to
-  migrate between single and multi-file packages, and makes it harder to transfer
-  knowledge and experience
-
-**Option 4: Presentation Streams**
-
-YAML allows several documents to be concatenated together variant
-[presentation streams](https://yaml.org/spec/1.2.2/#323-presentation-stream)
-which might seem familiar as this is frequently used in static-site generators
-for adding frontmatter to pages.
-What if we extended Rust's syntax to allow something similar?
-
-```rust
-#!/usr/bin/env cargo
-
-fn main() {
-}
-
----Cargo.toml
-[package]
-edition = "2018"
-```
-- Easiest for machine parsing and editing
-- Flexible for manifest, lockfile, and other content
-- Being new syntax, there would be a lot of details to work out, including
-  - How to delineate and label documents
-  - How to allow escaping to avoid conflicts with content in a documents
-  - Potentially an API for accessing the document from within Rust
-- Unfamiliar, new syntax, unclear how it will work out for newer users
-
-**Option 5: Regular Comment**
-
-The manifest can be a regular comment with a header.  If we were to support
-multiple types of content (manifest, lockfile), we could either use multiple
-comments or HEREDOC.
-
-Open questions
-- Which syntax to use
-- Which comment types would be supported
-
-Simple header:
-```rust
-#!/usr/bin/env cargo
-/* Cargo.toml:
-[package]
-edition = "2018"
-*/
-
-fn main() {
-}
-```
-
-HEREDOC:
-```rust
-#!/usr/bin/env cargo
-/* Cargo.TOML >>>
-[package]
-edition = "2018"
-<<<
-*/
-
-fn main() {
-}
-```
-
-- Unfamiliar syntax
-- New style of structured comment for the ecosystem to support with potential
-  compatibility issues
-- Assuming it can't be parsed with `syn` and either we need to write a
-  sufficiently compatible comment parser or pull in a much larger rust parser
-  to extract and update comments.
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
