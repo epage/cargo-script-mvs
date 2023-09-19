@@ -1149,6 +1149,12 @@ See also [Single-file scripts that download their dependencies](https://dbohdan.
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
+Note: we are assuming the following are **not** future possibilities in this design
+- Embedding build scripts
+- Embedding `.cargo/config.toml` files
+- Embedding `rustup-toolchain.toml` files
+- Embedding other source files or additional packages
+
 ## Executing `<stdin>`
 
 We could extend this to allow accepting single-file packages from stdin, either
