@@ -416,6 +416,8 @@ To allow the xor, we enforce that
 - manifests must be passed in as `Cargo.toml`, `foo.rs`, or have a `/` in them
 - no built-in command may look like an accepted manifest
 
+When piping `cargo <file>.rs`, `--quiet` will be assumed.
+
 # Drawbacks
 [drawbacks]: #drawbacks
 
@@ -467,6 +469,18 @@ However
 - A REPL for Rust is a lot more nebulous of a future possibility, making it pre-mature to design for it in mind
 
 Therefore, this RFC proposes we limit the scope of the new command to `cargo run` for single-file rust packages.
+
+## Misc
+
+- Rejected: Defaulting to `RUST_BACKTRACE=1` for `cargo foo.rs` runs
+  - Enabling backtraces provides more context to problems, much like Python scripts, which helps with experiments
+  - This comes at the cost of making things worse for scripts
+  - Decided against it to minimize special casing
+  - See also [t-cargo zulip thread](https://rust-lang.zulipchat.com/#narrow/stream/246057-t-cargo/topic/Smarter.20.60RUST_BACKTRACE.60.20behavior.3F)
+- The package name is slugified according the stricter `cargo new` validation
+  rules, making it consistent across platforms as some names are invalid on
+  some platforms
+  - See [rust-lang/cargo#12255](https://github.com/rust-lang/cargo/pull/12255)
 
 ## Naming
 [naming]: #naming
@@ -621,6 +635,8 @@ Benefits
 
 Downsides
 - People are likely to make mistakes in wrapping these in code fences when posting issues to github (this post originally had the code fence wrong)
+
+See also [t-lang zulup thread](https://rust-lang.zulipchat.com/#narrow/stream/213817-t-lang/topic/Embedding.20cargo.20manifests.20in.20rust.20source)
 
 **Alternative 1: Doc-comment**
 
@@ -876,6 +892,8 @@ Note: this is a reversible decision on an edition boundary
 > Disposition: Selected as it offers low overhead while supporting our effort
 > with editions.  If we learn this doesn't work as well as we want, this would
 > allow us to switch to requiring the edition in the future.
+
+See also [t-cargo zulip thread](https://rust-lang.zulipchat.com/#narrow/stream/246057-t-cargo/topic/cargo.20script.20and.20edition)
 
 **Alternative 1: No default but error**
 
@@ -1135,17 +1153,6 @@ See also [Single-file scripts that download their dependencies](https://dbohdan.
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-- Since single-file packages cannot be inferred and require an explicit
-  `--manifest-path`, is there an alternative shorthand we should provide, like
-  a short-flag for `--manifest-path` or a shorter, more targeted alias?
-  - `--script` with `-s` or `-S` for a short flag, but is the meaning clear
-    enough?  What about in the context of multi-file packages taking advantage
-    of it?
-  - `p` is taken by `--package`
-  - `-m`, `-M`, and `-P` are available, but are the meanings clear enough?
-- Is there a way we could track what dependency versions have been built in the
-  `CARGO_TARGET_DIR` and give preference to resolve to them, if possible.
-
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
@@ -1154,6 +1161,55 @@ Note: we are assuming the following are **not** future possibilities in this des
 - Embedding `.cargo/config.toml` files
 - Embedding `rustup-toolchain.toml` files
 - Embedding other source files or additional packages
+
+## Dealing with leaked `target/`
+
+As `target/` is out of sight, it is easy to "leak" them, eating up disk space.
+Users would need to know to run `cargo clean --manifest-path foo.rs` before
+deleting `foo.rs` or to just do `rm -rf ~/.cargo/target` and wipe everything
+(since the specific target directory will be non-obvious).
+
+In the future we can
+[track embedded manifests and garbage collect their `target/`](https://github.com/rust-lang/cargo/issues/12633).
+
+## `cargo new` support
+
+A `cargo new <flag> foo.rs` could generate a source file with an embedded manifest.
+
+Questions
+- Should we do this implicitly with the `.rs` extension?
+- If we have a flag, what should we name it?
+
+## A shorter flag for `--manifest-path`
+
+Cargo users are used to the `--manifest-path` argument being inferred from
+their current working directory but that doesn't work for embedded manifests.
+
+It would be helpful if we had an alias for this argument to make it easier to
+specify, whether it was a short word for a "short flag".
+
+Options include
+- `--script` with `-s` or `-S` for a short flag, but is the meaning clear
+  enough?  What about in the context of multi-file packages taking advantage
+  of it?
+- `p` is taken by `--package`
+- `-m`, `-M`, and `-P` are available, but are the meanings clear enough?
+
+## Cleaner output
+
+`cargo foo.rs` is just a wrapper around `cargo run --manifest-path foo.rs` and cargo can be quite noisy.
+The out-of-tree prototype for this instead ran `cargo run --quiet
+--manifest-path foo.rs` but that was confusing as it is unclear when a long
+execution time is from a slow compile or from the program.
+
+In the future, we could try to find ways to better control cargo's output so at
+least `cargo foo.rs` is less noisy but appears responsive.
+
+See
+[t-cargo zulip thread](https://rust-lang.zulipchat.com/#narrow/stream/246057-t-cargo/topic/Re-thinking.20cargo's.20output)
+and [rust-lang/cargo#8889](https://github.com/rust-lang/cargo/issues/8889).
+
+Note: `--quiet` is inferred when piping to a file ([rust-lang/cargo#12305](https://github.com/rust-lang/cargo/pull/12305))
 
 ## Executing `<stdin>`
 
