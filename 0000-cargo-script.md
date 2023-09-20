@@ -622,10 +622,10 @@ foo = "1.2.3"
 
 fn main() {}
 ````
-- The first line post-shebang-stripping is 3+ backticks, then capture all content until a matching pair of backticks on a dedicated line.  This would be captured into a `#![frontmatter(info = "cargo", content = "..."]`.  `frontmatter` attribute is reserved for crate roots.  The 3+ with matching pair is a "just in case" a TOML multi-line string has that syntax in it)
+- The first line post-shebang-stripping is 3+ backticks with a `cargo` infostring, then capture all content until a matching pair of backticks on a dedicated line.  This would be captured into a `#![frontmatter(info = "cargo", content = "..."]`.  `frontmatter` attribute is reserved for crate roots.  The 3+ with matching pair is a "just in case" a TOML multi-line string has that syntax in it)
 - Future evolution: Allow `cargo` being the default `info` string
 - Future evolution: Allow any `info` string with cargo checking for `content.starts_with(["cargo", "cargo,"])`
-- Future evolution: Allow `frontmatter` attribute on any module
+- Future evolution: Allow this `frontmatter` attribute on any module
 
 Benefits
 - Visually/syntactically lightweight
@@ -635,6 +635,15 @@ Benefits
 
 Downsides
 - People are likely to make mistakes in wrapping these in code fences when posting issues to github (this post originally had the code fence wrong)
+
+The `cargo` infostring was chosen because
+- An alternative is `Cargo.toml` but infostring language fields are generally an identifier rather than a file name
+- An alternative is to specify the cargo payload as an attribute, like `cargo,file=Cargo.toml` but the language should generally convey the format/schema rather than an attribute
+  - This also adds a lot of verbosity to teach, write, and get wrong
+- If we add additional frontmatter blocks in the future (like for lockfiles),
+  the manifest block will be needed at minimum and other blocks will likely
+  only be used in 1% of cases the manifest block is present, so we shouldn't
+  hurt the simple, common case for the more advanced, long tail cases.
 
 See also [t-lang zulup thread](https://rust-lang.zulipchat.com/#narrow/stream/213817-t-lang/topic/Embedding.20cargo.20manifests.20in.20rust.20source)
 
