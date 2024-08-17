@@ -47,7 +47,7 @@ env_logger = "0.10"
 home = "0.5.5"
 is-terminal = "0.4.7"
 log = "0.4"
-pulldown-cmark = "0.9"
+pulldown-cmark = "0.12"
 regex = "1.8.3"
 toml = "0.7"
 
